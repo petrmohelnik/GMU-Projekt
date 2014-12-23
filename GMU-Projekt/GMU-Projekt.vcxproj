@@ -13,6 +13,9 @@
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="src\matrix_operations.cl" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{B4B22387-D4A8-4BC1-A5B3-EDB3DD4BA9DB}</ProjectGuid>
     <RootNamespace>GMUProjekt</RootNamespace>

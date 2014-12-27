@@ -1,0 +1,1 @@
+void determinant(double *A, long double *d, int *exp, int matrixSize);

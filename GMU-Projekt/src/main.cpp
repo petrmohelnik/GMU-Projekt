@@ -1,83 +1,149 @@
 #include "CL\opencl.h"
+#include "matrix_operations.h"
 #include <stdlib.h>
 #include <iostream>
 #include <iomanip>
 #include <fstream>
 
-//#define DEBUG
-
 using namespace std;
 
-const int COUT_NUMBER_WIDTH = 7;
-const int COUT_NUMBER_PRECISION = 3;
-const int MATRIX_SIZE = 1 << 10;
-
-void cpu_determinant(long double *A, int matrixSize)
+char* loadFile(char *fname)
 {
-	long double d = 1;
-	int exp = 0;
+	char *buffer;
 
-	clock_t begin = clock();
-
-	// Compute gaussian elimination
-	for (int pivot = 0; pivot < matrixSize - 1; pivot++)
+	ifstream file(fname, ios::in | ios::binary | ios::ate);
+	if (file.is_open())
 	{
-		if (A[pivot*matrixSize + pivot] == 0)
-		{
-			// find non zero row
-			int sy;
-			for (sy = pivot + 1; sy < matrixSize; sy++)
-			{
-				if (A[sy*matrixSize + pivot] != 0)
-				{
-					break;
-				}
-			}
+		file.seekg(0, file.end);
+		int length = (int)file.tellg();
+		file.seekg(0, file.beg);
 
-			// swap lines -- FOR can be parallelized
-			for (int sx = pivot; sx < matrixSize; sx++)
-			{
-				long double tmp = A[pivot*matrixSize + sx];
-				A[pivot*matrixSize + sx] = A[sy*matrixSize + sx];
-				A[sy*matrixSize + sx] = tmp;
-			}
-			d *= -1;
-		}
-		// FOR can be parallelized
-		for (int y = pivot + 1; y < matrixSize; y++)
-		{
-			long double multiplier = A[y*matrixSize + pivot] / A[pivot*matrixSize + pivot];
+		buffer = new char[length + 1];
 
-			// multiply and substract "pivot" row from "y" row -- FOR can be parallelized
-			for (int x = pivot + 1; x < matrixSize; x++)
-			{
-				A[y*matrixSize + x] -= (multiplier * A[pivot*matrixSize + x]);
-			}
+		file.read(buffer, length);
+		file.close();
 
-			// Add zero to create upper triangular matrix - useless
-			A[y*matrixSize + pivot] = 0;
-		}
+		buffer[length] = '\0';
+
+		cout << "file " << fname << " loaded" << endl;
+	}
+	else
+	{
+		cout << "Unable to open file " << fname << endl;
+		cin.ignore();
+		exit(-1);
 	}
 
-	//cout << float(clock() - begin) << " ms" << endl;
+	return buffer;
+}
 
-	// Compute determinant from main diagonal
-	for (int i = 0; i < matrixSize; i++)
-	{
-		d = d * A[i*matrixSize + i];
+//http://stackoverflow.com/questions/24326432/convenient-way-to-show-opencl-error-codes
+const char *getErrorString(cl_int error)
+{
+	switch (error){
+		// run-time and JIT compiler errors
+	case 0: return "CL_SUCCESS";
+	case -1: return "CL_DEVICE_NOT_FOUND";
+	case -2: return "CL_DEVICE_NOT_AVAILABLE";
+	case -3: return "CL_COMPILER_NOT_AVAILABLE";
+	case -4: return "CL_MEM_OBJECT_ALLOCATION_FAILURE";
+	case -5: return "CL_OUT_OF_RESOURCES";
+	case -6: return "CL_OUT_OF_HOST_MEMORY";
+	case -7: return "CL_PROFILING_INFO_NOT_AVAILABLE";
+	case -8: return "CL_MEM_COPY_OVERLAP";
+	case -9: return "CL_IMAGE_FORMAT_MISMATCH";
+	case -10: return "CL_IMAGE_FORMAT_NOT_SUPPORTED";
+	case -11: return "CL_BUILD_PROGRAM_FAILURE";
+	case -12: return "CL_MAP_FAILURE";
+	case -13: return "CL_MISALIGNED_SUB_BUFFER_OFFSET";
+	case -14: return "CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST";
+	case -15: return "CL_COMPILE_PROGRAM_FAILURE";
+	case -16: return "CL_LINKER_NOT_AVAILABLE";
+	case -17: return "CL_LINK_PROGRAM_FAILURE";
+	case -18: return "CL_DEVICE_PARTITION_FAILED";
+	case -19: return "CL_KERNEL_ARG_INFO_NOT_AVAILABLE";
 
-		// Prevent infinity result
-		if (d > 1000000 || d < -1000000)
-		{
-			exp += 6;
-			d /= 1000000;
-		}
+		// compile-time errors
+	case -30: return "CL_INVALID_VALUE";
+	case -31: return "CL_INVALID_DEVICE_TYPE";
+	case -32: return "CL_INVALID_PLATFORM";
+	case -33: return "CL_INVALID_DEVICE";
+	case -34: return "CL_INVALID_CONTEXT";
+	case -35: return "CL_INVALID_QUEUE_PROPERTIES";
+	case -36: return "CL_INVALID_COMMAND_QUEUE";
+	case -37: return "CL_INVALID_HOST_PTR";
+	case -38: return "CL_INVALID_MEM_OBJECT";
+	case -39: return "CL_INVALID_IMAGE_FORMAT_DESCRIPTOR";
+	case -40: return "CL_INVALID_IMAGE_SIZE";
+	case -41: return "CL_INVALID_SAMPLER";
+	case -42: return "CL_INVALID_BINARY";
+	case -43: return "CL_INVALID_BUILD_OPTIONS";
+	case -44: return "CL_INVALID_PROGRAM";
+	case -45: return "CL_INVALID_PROGRAM_EXECUTABLE";
+	case -46: return "CL_INVALID_KERNEL_NAME";
+	case -47: return "CL_INVALID_KERNEL_DEFINITION";
+	case -48: return "CL_INVALID_KERNEL";
+	case -49: return "CL_INVALID_ARG_INDEX";
+	case -50: return "CL_INVALID_ARG_VALUE";
+	case -51: return "CL_INVALID_ARG_SIZE";
+	case -52: return "CL_INVALID_KERNEL_ARGS";
+	case -53: return "CL_INVALID_WORK_DIMENSION";
+	case -54: return "CL_INVALID_WORK_GROUP_SIZE";
+	case -55: return "CL_INVALID_WORK_ITEM_SIZE";
+	case -56: return "CL_INVALID_GLOBAL_OFFSET";
+	case -57: return "CL_INVALID_EVENT_WAIT_LIST";
+	case -58: return "CL_INVALID_EVENT";
+	case -59: return "CL_INVALID_OPERATION";
+	case -60: return "CL_INVALID_GL_OBJECT";
+	case -61: return "CL_INVALID_BUFFER_SIZE";
+	case -62: return "CL_INVALID_MIP_LEVEL";
+	case -63: return "CL_INVALID_GLOBAL_WORK_SIZE";
+	case -64: return "CL_INVALID_PROPERTY";
+	case -65: return "CL_INVALID_IMAGE_DESCRIPTOR";
+	case -66: return "CL_INVALID_COMPILER_OPTIONS";
+	case -67: return "CL_INVALID_LINKER_OPTIONS";
+	case -68: return "CL_INVALID_DEVICE_PARTITION_COUNT";
+
+		// extension errors
+	case -1000: return "CL_INVALID_GL_SHAREGROUP_REFERENCE_KHR";
+	case -1001: return "CL_PLATFORM_NOT_FOUND_KHR";
+	case -1002: return "CL_INVALID_D3D10_DEVICE_KHR";
+	case -1003: return "CL_INVALID_D3D10_RESOURCE_KHR";
+	case -1004: return "CL_D3D10_RESOURCE_ALREADY_ACQUIRED_KHR";
+	case -1005: return "CL_D3D10_RESOURCE_NOT_ACQUIRED_KHR";
+	default: return "Unknown OpenCL error";
 	}
+}
 
-	cout << "Determinant: " << d;
-	if (exp > 0)
+void CheckOpenCLError(cl_int err, char *info)
+{
+	if (err != CL_SUCCESS) {
+		cout << "ERROR: " << info << getErrorString(err) << "\n";
+		cin.ignore();
+		exit(-1);
+	}
+}
+
+//z cviceni GMU
+unsigned int iCeilTo(unsigned int data, unsigned int align_size)
+{
+	return ((data - 1 + align_size) / align_size) * align_size;
+}
+
+void printMatrix(double *matrix, int matrixWidth)
+{
+	const int COUT_NUMBER_WIDTH = 7;
+	const int COUT_NUMBER_PRECISION = 3;
+
+	cout << setiosflags(ios::fixed) << setprecision(COUT_NUMBER_PRECISION) << endl;
+
+	for (int x = 0; x < matrixWidth; x++)
 	{
-		cout << "e+" << exp;
+		for (int y = 0; y < matrixWidth; y++)
+		{
+			cout << setw(COUT_NUMBER_WIDTH) << matrix[x*matrixWidth + y] << " ";
+		}
+		cout << endl;
 	}
 	cout << endl;
 }
@@ -87,10 +153,14 @@ int main(int argc, char* argv[])
 	cl_uint platformsCount;
 	cl_platform_id *platform;
 	cl_device_id gpuDevice;
+	cl_int errMsg;
+	cl_int matrixWidth = 64;
+	cl_int matrixSize = matrixWidth * matrixWidth;
+	cl_double *matrix = (cl_double *)malloc(matrixSize * sizeof(cl_double));
 
-	clGetPlatformIDs(0, NULL, &platformsCount);
+	CheckOpenCLError(clGetPlatformIDs(0, NULL, &platformsCount), "clGetPlatformIDs: ");
 	platform = (cl_platform_id *)malloc(platformsCount * sizeof(cl_platform_id));
-	clGetPlatformIDs(platformsCount, platform, NULL);
+	CheckOpenCLError(clGetPlatformIDs(platformsCount, platform, NULL), "clGetPlatformIDs: ");
 
 	for (unsigned int i = 0; i < platformsCount; i++)
 	{
@@ -98,17 +168,17 @@ int main(int argc, char* argv[])
 		cl_uint devicesCount;
 		cl_device_id *device;
 
-		clGetPlatformInfo(platform[i], CL_PLATFORM_NAME, 1024, pName, NULL);
+		CheckOpenCLError(clGetPlatformInfo(platform[i], CL_PLATFORM_NAME, 1024, pName, NULL), "clGetPlatformInfo: ");
 		cout << "Platform: " << pName << "\n";
 
-		clGetDeviceIDs(platform[i], CL_DEVICE_TYPE_GPU, 0, NULL, &devicesCount);
+		CheckOpenCLError(clGetDeviceIDs(platform[i], CL_DEVICE_TYPE_GPU, 0, NULL, &devicesCount), "clGetDeviceIDs: ");
 		device = (cl_device_id *)malloc(devicesCount * sizeof(cl_device_id));
-		clGetDeviceIDs(platform[i], CL_DEVICE_TYPE_GPU, devicesCount, device, NULL);
+		CheckOpenCLError(clGetDeviceIDs(platform[i], CL_DEVICE_TYPE_GPU, devicesCount, device, NULL), "clGetDeviceIDs: ");
 
 		for (unsigned int j = 0; j < devicesCount; j++)
 		{
 			char dName[1024];
-			clGetDeviceInfo(device[j], CL_DEVICE_NAME, 1024, dName, NULL);
+			CheckOpenCLError(clGetDeviceInfo(device[j], CL_DEVICE_NAME, 1024, dName, NULL), "clGetDeviceInfo: ");
 			cout << "Device: " << dName << "\n";
 		}
 
@@ -126,45 +196,138 @@ int main(int argc, char* argv[])
 
 	free(platform);
 
+	cl_context context = clCreateContext(NULL, 1, &gpuDevice, NULL, NULL, &errMsg);
+	CheckOpenCLError(errMsg, "clCreateContext: ");
+
+	cl_command_queue queue = clCreateCommandQueue(context, gpuDevice, CL_QUEUE_PROFILING_ENABLE, &errMsg);
+	CheckOpenCLError(errMsg, "clCreateContext: ");
+
+	char *programSource = loadFile("src/matrix_operations.cl");
+	cl_program program = clCreateProgramWithSource(context, 1, (const char **)&programSource, NULL, &errMsg);
+	CheckOpenCLError(errMsg, "clCreateProgramWithSource: ");
+	if ((errMsg = clBuildProgram(program, 1, &gpuDevice, "", NULL, NULL)) == CL_BUILD_PROGRAM_FAILURE)
+	{
+		size_t logSize;
+		CheckOpenCLError(clGetProgramBuildInfo(program, gpuDevice, CL_PROGRAM_BUILD_LOG, 0, NULL, &logSize), "clGetProgramBuildInfo: ");
+		char *log = (char *)malloc(logSize);
+		CheckOpenCLError(clGetProgramBuildInfo(program, gpuDevice, CL_PROGRAM_BUILD_LOG, logSize, (void *)log, NULL), "clGetProgramBuildInfo: ");
+		cout << log;
+		cin.ignore();
+	}
+
+	cl_kernel kernelDet = clCreateKernel(program, "determinant", &errMsg);
+	CheckOpenCLError(errMsg, "clCreateKernel: ");
+	cl_kernel kernelGem = clCreateKernel(program, "gem", &errMsg);
+	CheckOpenCLError(errMsg, "clCreateKernel: ");
+	cl_kernel kernelInverse = clCreateKernel(program, "inverse", &errMsg);
+	CheckOpenCLError(errMsg, "clCreateKernel: ");
+
+	cl_mem inputBuffer = clCreateBuffer(context, CL_MEM_READ_ONLY, matrixSize, NULL, &errMsg);
+	CheckOpenCLError(errMsg, "clCreateBuffer: ");
+	cl_mem resultBufferDet = clCreateBuffer(context, CL_MEM_WRITE_ONLY, matrixSize, NULL, &errMsg);
+	CheckOpenCLError(errMsg, "clCreateBuffer: ");
+	cl_mem resultBufferGem = clCreateBuffer(context, CL_MEM_WRITE_ONLY, matrixSize, NULL, &errMsg);
+	CheckOpenCLError(errMsg, "clCreateBuffer: ");
+	cl_mem resultBufferInverse = clCreateBuffer(context, CL_MEM_WRITE_ONLY, matrixSize, NULL, &errMsg);
+	CheckOpenCLError(errMsg, "clCreateBuffer: ");
+
+	cl_event inputEvent = clCreateUserEvent(context, &errMsg);
+	CheckOpenCLError(errMsg, "clCreateUserEvent: ");
+	cl_event kernelDetEvent = clCreateUserEvent(context, &errMsg);
+	CheckOpenCLError(errMsg, "clCreateUserEvent: ");
+	cl_event resultDetEvent = clCreateUserEvent(context, &errMsg);
+	CheckOpenCLError(errMsg, "clCreateUserEvent: ");
+	cl_event kernelGemEvent = clCreateUserEvent(context, &errMsg);
+	CheckOpenCLError(errMsg, "clCreateUserEvent: ");
+	cl_event resultGemEvent = clCreateUserEvent(context, &errMsg);
+	CheckOpenCLError(errMsg, "clCreateUserEvent: ");
+	cl_event kernelInverseEvent = clCreateUserEvent(context, &errMsg);
+	CheckOpenCLError(errMsg, "clCreateUserEvent: ");
+	cl_event resultInverseEvent = clCreateUserEvent(context, &errMsg);
+	CheckOpenCLError(errMsg, "clCreateUserEvent: ");
+
+	size_t local[2] = { 32, 32 };
+	size_t global[2];
+	global[0] = iCeilTo(matrixWidth, local[0]);
+	global[1] = global[0];
+	cl_double resultDet;
+	cl_double *resultGem = (cl_double *)malloc(matrixSize * sizeof(cl_double));
+	cl_double *resultInverse = (cl_double *)malloc(matrixSize * sizeof(cl_double));
+
+	CheckOpenCLError(clSetKernelArg(kernelDet, 0, sizeof(cl_mem), &inputBuffer), "clSetKernelArg: ");
+	CheckOpenCLError(clSetKernelArg(kernelDet, 1, sizeof(cl_mem), &resultBufferDet), "clSetKernelArg: ");
+	CheckOpenCLError(clSetKernelArg(kernelDet, 2, sizeof(cl_int), &matrixSize), "clSetKernelArg: ");
+
+	CheckOpenCLError(clSetKernelArg(kernelGem, 0, sizeof(cl_mem), &inputBuffer), "clSetKernelArg: ");
+	CheckOpenCLError(clSetKernelArg(kernelGem, 1, sizeof(cl_mem), &resultBufferGem), "clSetKernelArg: ");
+	CheckOpenCLError(clSetKernelArg(kernelGem, 2, sizeof(cl_int), &matrixSize), "clSetKernelArg: ");
+
+	CheckOpenCLError(clSetKernelArg(kernelInverse, 0, sizeof(cl_mem), &inputBuffer), "clSetKernelArg: ");
+	CheckOpenCLError(clSetKernelArg(kernelInverse, 1, sizeof(cl_mem), &resultBufferInverse), "clSetKernelArg: ");
+	CheckOpenCLError(clSetKernelArg(kernelInverse, 2, sizeof(cl_int), &matrixSize), "clSetKernelArg: ");
+
+	CheckOpenCLError(clEnqueueWriteBuffer(queue, inputBuffer, CL_FALSE, 0, matrixSize, matrix, 0, NULL, &inputEvent), "clEnqueueWriteBuffer: ");
+
+	//CheckOpenCLError(clEnqueueWriteBuffer(queue, resultBufferDet, CL_FALSE, 0, 1, 0, 0, NULL, NULL), "clEnqueueWriteBuffer: ");
+	CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelDet, 2, NULL, global, local, 0, NULL, &kernelDetEvent), "clEnqueueNDRangeKernel: ");
+	CheckOpenCLError(clEnqueueReadBuffer(queue, resultBufferDet, CL_FALSE, 0, 1, &resultDet, 0, NULL, &resultDetEvent), "clEnqueueWriteBuffer: ");
+
+	//CheckOpenCLError(clEnqueueWriteBuffer(queue, resultBufferGem, CL_FALSE, 0, matrixSize, resultInit, 0, NULL, NULL), "clEnqueueWriteBuffer: ");
+	CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelGem, 2, NULL, global, local, 0, NULL, &kernelGemEvent), "clEnqueueNDRangeKernel: ");
+	CheckOpenCLError(clEnqueueReadBuffer(queue, resultBufferGem, CL_FALSE, 0, matrixSize, resultGem, 0, NULL, &resultGemEvent), "clEnqueueWriteBuffer: ");
+
+	//CheckOpenCLError(clEnqueueWriteBuffer(queue, resultBufferInverse, CL_FALSE, 0, matrixSize, resultInit, 0, NULL, NULL), "clEnqueueWriteBuffer: ");
+	CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelInverse, 2, NULL, global, local, 0, NULL, &kernelInverseEvent), "clEnqueueNDRangeKernel: ");
+	CheckOpenCLError(clEnqueueReadBuffer(queue, resultBufferInverse, CL_FALSE, 0, matrixSize, resultInverse, 0, NULL, &resultInverseEvent), "clEnqueueWriteBuffer: ");
+
+	CheckOpenCLError(clReleaseMemObject(inputBuffer), "clReleaseMemObject: ");
+	CheckOpenCLError(clReleaseMemObject(resultBufferDet), "clReleaseMemObject: ");
+	CheckOpenCLError(clReleaseMemObject(resultBufferGem), "clReleaseMemObject: ");
+	CheckOpenCLError(clReleaseMemObject(resultBufferInverse), "clReleaseMemObject: ");
+
+	CheckOpenCLError(clReleaseEvent(inputEvent), "clReleaseEvent: ");
+	CheckOpenCLError(clReleaseEvent(kernelDetEvent), "clReleaseEvent: ");
+	CheckOpenCLError(clReleaseEvent(resultDetEvent), "clReleaseEvent: ");
+	CheckOpenCLError(clReleaseEvent(kernelGemEvent), "clReleaseEvent: ");
+	CheckOpenCLError(clReleaseEvent(resultGemEvent), "clReleaseEvent: ");
+	CheckOpenCLError(clReleaseEvent(kernelInverseEvent), "clReleaseEvent: ");
+	CheckOpenCLError(clReleaseEvent(resultInverseEvent), "clReleaseEvent: ");
+
+	free(resultGem);
+	free(resultInverse);
+
+	CheckOpenCLError(clReleaseKernel(kernelDet), "clReleaseKernel: ");
+	CheckOpenCLError(clReleaseKernel(kernelGem), "clReleaseKernel: ");
+	CheckOpenCLError(clReleaseKernel(kernelInverse), "clReleaseKernel: ");
+
+	CheckOpenCLError(clReleaseProgram(program), "clReleaseProgram: ");
+	CheckOpenCLError(clReleaseContext(context), "clReleaseContext: ");
+
 	/* Create input matrix with random data */
-	long double *matrix = new long double[MATRIX_SIZE*MATRIX_SIZE];
-	for (int y = 0; y < MATRIX_SIZE; y++)
+	for (int y = 0; y < matrixWidth; y++)
 	{
-		for (int x = 0; x < MATRIX_SIZE; x++)
+		for (int x = 0; x < matrixWidth; x++)
 		{
-			matrix[y*MATRIX_SIZE + x] = (rand() % 10) - 5;
+			matrix[y*matrixWidth + x] = (rand() % 10) - 5;
 		}
 	}
 
-#ifdef DEBUG
-	cout << setiosflags(ios::fixed) << setprecision(COUT_NUMBER_PRECISION) << endl;
 	cout << "Input matrix:" << endl;
+	printMatrix(matrix, matrixWidth);
 
-	for (int x = 0; x < MATRIX_SIZE; x++)
-	{
-		for (int y = 0; y < MATRIX_SIZE; y++)
-		{
-			cout << setw(COUT_NUMBER_WIDTH) << matrix[x*MATRIX_SIZE + y] << " ";
-		}
-		cout << endl;
-	}
-	cout << endl;
-#endif
+	long double d;
+	int exp;
+	determinant(matrix, &d, &exp, matrixWidth);
 
-	cpu_determinant(matrix, MATRIX_SIZE);
-
-#ifdef DEBUG
 	cout << "Output matrix:" << endl;
-	for (int x = 0; x < MATRIX_SIZE; x++)
+	printMatrix(matrix, matrixWidth);
+
+	cout << "Determinant: " << d;
+	if (exp > 0)
 	{
-		for (int y = 0; y < MATRIX_SIZE; y++)
-		{
-			cout << setw(COUT_NUMBER_WIDTH) << matrix[x*MATRIX_SIZE + y] << " ";
-		}
-		cout << endl;
+		cout << "e+" << exp;
 	}
 	cout << endl;
-#endif
 
 	delete[] matrix;
 

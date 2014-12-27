@@ -12,6 +12,13 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\matrix_operations.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\matrix_operations.cl" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\matrix_operations.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{B4B22387-D4A8-4BC1-A5B3-EDB3DD4BA9DB}</ProjectGuid>
@@ -62,11 +69,6 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>include;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <EnableParallelCodeGeneration>
-      </EnableParallelCodeGeneration>
-      <EnableEnhancedInstructionSet>
-      </EnableEnhancedInstructionSet>
-      <FloatingPointModel>Precise</FloatingPointModel>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>

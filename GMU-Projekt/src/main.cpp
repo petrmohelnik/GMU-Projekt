@@ -130,22 +130,26 @@ unsigned int iCeilTo(unsigned int data, unsigned int align_size)
 	return ((data - 1 + align_size) / align_size) * align_size;
 }
 
-void printMatrix(double *matrix, int matrixWidth, double *b = NULL)
+void printMatrix(double *matrix, int matrixWidth, double *result = NULL, int resultSize = 0)
 {
 	const int COUT_NUMBER_WIDTH = 7;
 	const int COUT_NUMBER_PRECISION = 3;
 
 	cout << setiosflags(ios::fixed) << setprecision(COUT_NUMBER_PRECISION) << endl;
 
-	for (int x = 0; x < matrixWidth; x++)
+	for (int y = 0; y < matrixWidth; y++)
 	{
-		for (int y = 0; y < matrixWidth; y++)
+		for (int x = 0; x < matrixWidth; x++)
 		{
-			cout << setw(COUT_NUMBER_WIDTH) << matrix[x*matrixWidth + y] << " ";
+			cout << setw(COUT_NUMBER_WIDTH) << matrix[y*matrixWidth + x] << " ";
 		}
-		if (b != NULL)
+		if (resultSize != 0 && result != NULL)
 		{
-			cout << " | " << setw(COUT_NUMBER_WIDTH) << b[x];
+			cout << " | ";
+			for (int x = 0; x < resultSize / matrixWidth; x++)
+			{
+				cout << setw(COUT_NUMBER_WIDTH) << result[y*(resultSize / matrixWidth) + x];
+			}
 		}
 
 		cout << endl;
@@ -317,8 +321,15 @@ int main(int argc, char* argv[])
 
 	double *detMatrix = (double *)malloc(matrixSize * sizeof(double));
 	memcpy(detMatrix, matrix, matrixSize * sizeof(double));
+
 	double *gemMatrix = (double *)malloc(matrixSize * sizeof(double));
 	memcpy(gemMatrix, matrix, matrixSize * sizeof(double));
+
+	double *invMatrix = (double *)malloc(matrixSize * sizeof(double));
+	memcpy(invMatrix, matrix, matrixSize * sizeof(double));
+
+	double *invResult = (double *)malloc(matrixSize * sizeof(double));
+	double *gemResult = (double *)malloc(matrixWidth * sizeof(double));
 
 	cout << "Input matrix:" << endl;
 	printMatrix(detMatrix, matrixWidth);
@@ -338,18 +349,20 @@ int main(int argc, char* argv[])
 	}
 	cout << endl;
 
-	double *gemResult = (double *)malloc(matrixWidth * sizeof(double));
-	for (int i = 0; i < matrixWidth; i++)
-	{
-		gemResult[i] = 1;
-	}
-
 	gem(gemMatrix, gemResult, matrixWidth);
 
 	cout << endl << "Output gaussian elimination matrix: " << endl;
-	printMatrix(gemMatrix, matrixWidth, gemResult);
+	printMatrix(gemMatrix, matrixWidth, gemResult, matrixWidth);
+
+	inverse(invMatrix, invResult, matrixWidth);
+
+	cout << endl << "Output inverted matrix: " << endl;
+	printMatrix(gemMatrix, matrixWidth, invResult, matrixSize);
 
 	free(gemResult);
+	free(invResult);
+	free(invMatrix);
+	free(gemMatrix);
 	free(detMatrix);
 	free(matrix);
 

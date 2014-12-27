@@ -5,6 +5,8 @@
 #include <iomanip>
 #include <fstream>
 
+#define PRINT_MATRIX	// comment out for large matrix (> 16x16)
+
 using namespace std;
 
 char* loadFile(char *fname)
@@ -137,6 +139,8 @@ void printMatrix(double *matrix, int matrixWidth, double *result = NULL, int res
 
 	cout << setiosflags(ios::fixed) << setprecision(COUT_NUMBER_PRECISION) << endl;
 
+#ifdef PRINT_MATRIX
+
 	for (int y = 0; y < matrixWidth; y++)
 	{
 		for (int x = 0; x < matrixWidth; x++)
@@ -152,9 +156,10 @@ void printMatrix(double *matrix, int matrixWidth, double *result = NULL, int res
 			}
 		}
 
-		cout << endl;
+		cout << '\n';
 	}
 	cout << endl;
+#endif
 }
 
 int main(int argc, char* argv[])
@@ -331,15 +336,18 @@ int main(int argc, char* argv[])
 	double *invResult = (double *)malloc(matrixSize * sizeof(double));
 	double *gemResult = (double *)malloc(matrixWidth * sizeof(double));
 
-	cout << "Input matrix:" << endl;
+	cout << "Input matrix (" << matrixWidth << "x" << matrixWidth << ")" << endl;
 	printMatrix(detMatrix, matrixWidth);
 
 	long double d;
 
 	int exp;
+	clock_t start = clock();
 	determinant(detMatrix, &d, &exp, matrixWidth);
+	clock_t end = clock();
 
 	cout << "Output determinant matrix:" << endl;
+	cout << float(end - start) << "ms" << endl;
 	printMatrix(detMatrix, matrixWidth);
 
 	cout << "Determinant: " << d;
@@ -349,14 +357,20 @@ int main(int argc, char* argv[])
 	}
 	cout << endl;
 
+	start = clock();
 	gem(gemMatrix, gemResult, matrixWidth);
+	end = clock();
 
 	cout << endl << "Output gaussian elimination matrix: " << endl;
+	cout << float(end - start) << "ms" << endl;
 	printMatrix(gemMatrix, matrixWidth, gemResult, matrixWidth);
 
+	start = clock();
 	inverse(invMatrix, invResult, matrixWidth);
+	end = clock();
 
 	cout << endl << "Output inverted matrix: " << endl;
+	cout << float(end - start) << "ms" << endl;
 	printMatrix(gemMatrix, matrixWidth, invResult, matrixSize);
 
 	free(gemResult);

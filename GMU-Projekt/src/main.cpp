@@ -130,7 +130,7 @@ unsigned int iCeilTo(unsigned int data, unsigned int align_size)
 	return ((data - 1 + align_size) / align_size) * align_size;
 }
 
-void printMatrix(double *matrix, int matrixWidth)
+void printMatrix(double *matrix, int matrixWidth, double *b = NULL)
 {
 	const int COUT_NUMBER_WIDTH = 7;
 	const int COUT_NUMBER_PRECISION = 3;
@@ -143,6 +143,11 @@ void printMatrix(double *matrix, int matrixWidth)
 		{
 			cout << setw(COUT_NUMBER_WIDTH) << matrix[x*matrixWidth + y] << " ";
 		}
+		if (b != NULL)
+		{
+			cout << " | " << setw(COUT_NUMBER_WIDTH) << b[x];
+		}
+
 		cout << endl;
 	}
 	cout << endl;
@@ -154,7 +159,7 @@ int main(int argc, char* argv[])
 	cl_platform_id *platform;
 	cl_device_id gpuDevice;
 	cl_int errMsg;
-	cl_int matrixWidth = 64;
+	cl_int matrixWidth = 16;
 	cl_int matrixSize = matrixWidth * matrixWidth;
 	cl_double *matrix = (cl_double *)malloc(matrixSize * sizeof(cl_double));
 
@@ -246,7 +251,7 @@ int main(int argc, char* argv[])
 	cl_event resultInverseEvent = clCreateUserEvent(context, &errMsg);
 	CheckOpenCLError(errMsg, "clCreateUserEvent: ");
 
-	size_t local[2] = { 32, 32 };
+	size_t local[2] = { 16, 16 };
 	size_t global[2];
 	global[0] = iCeilTo(matrixWidth, local[0]);
 	global[1] = global[0];
@@ -304,23 +309,27 @@ int main(int argc, char* argv[])
 	CheckOpenCLError(clReleaseContext(context), "clReleaseContext: ");
 
 	/* Create input matrix with random data */
-	for (int y = 0; y < matrixWidth; y++)
+	srand(1);
+	for (int i = 0; i < matrixSize; i++)
 	{
-		for (int x = 0; x < matrixWidth; x++)
-		{
-			matrix[y*matrixWidth + x] = (rand() % 10) - 5;
-		}
+		matrix[i] = (rand() % 10) - 5;
 	}
 
+	double *detMatrix = (double *)malloc(matrixSize * sizeof(double));
+	memcpy(detMatrix, matrix, matrixSize * sizeof(double));
+	double *gemMatrix = (double *)malloc(matrixSize * sizeof(double));
+	memcpy(gemMatrix, matrix, matrixSize * sizeof(double));
+
 	cout << "Input matrix:" << endl;
-	printMatrix(matrix, matrixWidth);
+	printMatrix(detMatrix, matrixWidth);
 
 	long double d;
-	int exp;
-	determinant(matrix, &d, &exp, matrixWidth);
 
-	cout << "Output matrix:" << endl;
-	printMatrix(matrix, matrixWidth);
+	int exp;
+	determinant(detMatrix, &d, &exp, matrixWidth);
+
+	cout << "Output determinant matrix:" << endl;
+	printMatrix(detMatrix, matrixWidth);
 
 	cout << "Determinant: " << d;
 	if (exp > 0)
@@ -329,7 +338,20 @@ int main(int argc, char* argv[])
 	}
 	cout << endl;
 
-	delete[] matrix;
+	double *gemResult = (double *)malloc(matrixWidth * sizeof(double));
+	for (int i = 0; i < matrixWidth; i++)
+	{
+		gemResult[i] = 1;
+	}
+
+	gem(gemMatrix, gemResult, matrixWidth);
+
+	cout << endl << "Output gaussian elimination matrix: " << endl;
+	printMatrix(gemMatrix, matrixWidth, gemResult);
+
+	free(gemResult);
+	free(detMatrix);
+	free(matrix);
 
 	cin.ignore();
 

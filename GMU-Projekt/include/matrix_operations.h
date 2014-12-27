@@ -1,1 +1,2 @@
-void determinant(double *A, long double *d, int *exp, int matrixSize);
+void determinant(double *, long double *, int *, int);
+void gem(double *, double *, int);

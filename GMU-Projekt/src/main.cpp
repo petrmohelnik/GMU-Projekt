@@ -168,7 +168,7 @@ int main(int argc, char* argv[])
 	cl_platform_id *platform;
 	cl_device_id gpuDevice;
 	cl_int errMsg;
-	cl_int matrixWidth = 5000;
+	cl_int matrixWidth = 16;
 	cl_int matrixSize = matrixWidth * matrixWidth;
 	cl_double *matrix = (cl_double *)malloc(matrixSize * sizeof(cl_double));
 
@@ -266,7 +266,15 @@ int main(int argc, char* argv[])
 	cl_event resultInverseEvent = clCreateUserEvent(context, &errMsg);
 	CheckOpenCLError(errMsg, "clCreateUserEvent: ");
 
-	size_t local[2] = { 16, 16 };
+	size_t local[2] = { 128, 128 };
+	size_t maxWorkGroupSize, maxWorkItemSizes[10];
+	clGetDeviceInfo(gpuDevice, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t), &maxWorkGroupSize, NULL);
+	clGetDeviceInfo(gpuDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(size_t) * 10, maxWorkItemSizes, NULL);
+	while ((local[0] * local[1] > maxWorkGroupSize) || (local[0] > maxWorkItemSizes[0]) || (local[1] > maxWorkItemSizes[1])) {
+		local[0] /= 2;
+		local[1] /= 2;
+	}
+
 	size_t global[2];
 	global[0] = iCeilTo(matrixWidth, local[0]);
 	global[1] = global[0];
@@ -295,15 +303,15 @@ int main(int argc, char* argv[])
 	CheckOpenCLError(clEnqueueWriteBuffer(queue, inputBuffer, CL_FALSE, 0, matrixSize, matrix, 0, NULL, &inputEvent), "clEnqueueWriteBuffer: ");
 
 	//CheckOpenCLError(clEnqueueWriteBuffer(queue, resultBufferDet, CL_FALSE, 0, 1, 0, 0, NULL, NULL), "clEnqueueWriteBuffer: ");
-	CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelDet, 2, NULL, global, local, 0, NULL, &kernelDetEvent), "clEnqueueNDRangeKernel: ");
+	CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelDet, 2, NULL, global, local, 0, NULL, &kernelDetEvent), "clEnqueueNDRangeKernel: 1: ");
 	CheckOpenCLError(clEnqueueReadBuffer(queue, resultBufferDet, CL_FALSE, 0, 1, &resultDet, 0, NULL, &resultDetEvent), "clEnqueueWriteBuffer: ");
 
 	//CheckOpenCLError(clEnqueueWriteBuffer(queue, resultBufferGem, CL_FALSE, 0, matrixSize, resultInit, 0, NULL, NULL), "clEnqueueWriteBuffer: ");
-	CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelGem, 2, NULL, global, local, 0, NULL, &kernelGemEvent), "clEnqueueNDRangeKernel: ");
+	CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelGem, 2, NULL, global, local, 0, NULL, &kernelGemEvent), "clEnqueueNDRangeKernel: 2: ");
 	CheckOpenCLError(clEnqueueReadBuffer(queue, resultBufferGem, CL_FALSE, 0, matrixSize, resultGem, 0, NULL, &resultGemEvent), "clEnqueueWriteBuffer: ");
 
 	//CheckOpenCLError(clEnqueueWriteBuffer(queue, resultBufferInverse, CL_FALSE, 0, matrixSize, resultInit, 0, NULL, NULL), "clEnqueueWriteBuffer: ");
-	CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelInverse, 2, NULL, global, local, 0, NULL, &kernelInverseEvent), "clEnqueueNDRangeKernel: ");
+	CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelInverse, 2, NULL, global, local, 0, NULL, &kernelInverseEvent), "clEnqueueNDRangeKernel: 3: ");
 	CheckOpenCLError(clEnqueueReadBuffer(queue, resultBufferInverse, CL_FALSE, 0, matrixSize, resultInverse, 0, NULL, &resultInverseEvent), "clEnqueueWriteBuffer: ");
 
 	CheckOpenCLError(clReleaseMemObject(inputBuffer), "clReleaseMemObject: ");

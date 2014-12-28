@@ -140,6 +140,11 @@ int main(int argc, char* argv[])
 
 	CheckOpenCLError(clGetPlatformIDs(0, NULL, &platformsCount), "clGetPlatformIDs: ");
 	platform = (cl_platform_id *)malloc(platformsCount * sizeof(cl_platform_id));
+	if (platform == NULL) {
+		cout << "ERROR: malloc\n";
+		cin.ignore();
+		return -1;
+	}
 	CheckOpenCLError(clGetPlatformIDs(platformsCount, platform, NULL), "clGetPlatformIDs: ");
 
 	for (unsigned int i = 0; i < platformsCount; i++)
@@ -153,6 +158,11 @@ int main(int argc, char* argv[])
 
 		CheckOpenCLError(clGetDeviceIDs(platform[i], CL_DEVICE_TYPE_GPU, 0, NULL, &devicesCount), "clGetDeviceIDs: ");
 		device = (cl_device_id *)malloc(devicesCount * sizeof(cl_device_id));
+		if (device == NULL) {
+			cout << "ERROR: malloc\n";
+			cin.ignore();
+			return -1;
+		}
 		CheckOpenCLError(clGetDeviceIDs(platform[i], CL_DEVICE_TYPE_GPU, devicesCount, device, NULL), "clGetDeviceIDs: ");
 
 		for (unsigned int j = 0; j < devicesCount; j++)
@@ -232,7 +242,17 @@ int main(int argc, char* argv[])
 	global[1] = global[0];
 	cl_double resultDet;
 	cl_double *resultGem = (cl_double *) malloc(matrixSize * sizeof(cl_double));
+	if (resultGem == NULL) {
+		cout << "ERROR: malloc\n";
+		cin.ignore();
+		return -1;
+	}
 	cl_double *resultInverse = (cl_double *)malloc(matrixSize * sizeof(cl_double));
+	if (resultInverse == NULL) {
+		cout << "ERROR: malloc\n";
+		cin.ignore();
+		return -1;
+	}
 
 	CheckOpenCLError(clSetKernelArg(kernelDet, 0, sizeof(cl_mem), &inputBuffer), "clSetKernelArg: ");
 	CheckOpenCLError(clSetKernelArg(kernelDet, 1, sizeof(cl_mem), &resultBufferDet), "clSetKernelArg: ");

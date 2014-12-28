@@ -1,7 +1,11 @@
 #include "CL\opencl.h"
+#include "matrix_operations.h"
 #include <stdlib.h>
 #include <iostream>
+#include <iomanip>
 #include <fstream>
+
+//#define PRINT_MATRIX	// comment out for large matrix (> 16x16)
 
 using namespace std;
 
@@ -128,22 +132,50 @@ unsigned int iCeilTo(unsigned int data, unsigned int align_size)
 	return ((data - 1 + align_size) / align_size) * align_size;
 }
 
+void printMatrix(double *matrix, int matrixWidth, double *result = NULL, int resultSize = 0)
+{
+	const int COUT_NUMBER_WIDTH = 7;
+	const int COUT_NUMBER_PRECISION = 3;
+
+	cout << setiosflags(ios::fixed) << setprecision(COUT_NUMBER_PRECISION) << endl;
+
+#ifdef PRINT_MATRIX
+
+	for (int y = 0; y < matrixWidth; y++)
+	{
+		for (int x = 0; x < matrixWidth; x++)
+		{
+			cout << setw(COUT_NUMBER_WIDTH) << matrix[y*matrixWidth + x] << " ";
+		}
+		if (resultSize != 0 && result != NULL)
+		{
+			cout << " | ";
+			for (int x = 0; x < resultSize / matrixWidth; x++)
+			{
+				cout << setw(COUT_NUMBER_WIDTH) << result[y*(resultSize / matrixWidth) + x];
+			}
+		}
+
+		cout << '\n';
+	}
+	cout << endl;
+#endif
+}
+
 int main(int argc, char* argv[])
 {
 	cl_uint platformsCount;
 	cl_platform_id *platform;
 	cl_device_id gpuDevice;
 	cl_int errMsg;
-	cl_int matrixWidth = 64;
+	cl_int matrixWidth = 5000;
 	cl_int matrixSize = matrixWidth * matrixWidth;
-	cl_double *matrix = (cl_double *) malloc(matrixSize * sizeof(cl_double));
+	cl_double *matrix = (cl_double *)malloc(matrixSize * sizeof(cl_double));
 
 	CheckOpenCLError(clGetPlatformIDs(0, NULL, &platformsCount), "clGetPlatformIDs: ");
 	platform = (cl_platform_id *)malloc(platformsCount * sizeof(cl_platform_id));
 	if (platform == NULL) {
-		cout << "ERROR: malloc\n";
-		cin.ignore();
-		return -1;
+		cout << "ERROR: malloc\n"; cin.ignore(); return -1;
 	}
 	CheckOpenCLError(clGetPlatformIDs(platformsCount, platform, NULL), "clGetPlatformIDs: ");
 
@@ -152,16 +184,14 @@ int main(int argc, char* argv[])
 		char pName[1024];
 		cl_uint devicesCount;
 		cl_device_id *device;
-		
+
 		CheckOpenCLError(clGetPlatformInfo(platform[i], CL_PLATFORM_NAME, 1024, pName, NULL), "clGetPlatformInfo: ");
 		cout << "Platform: " << pName << "\n";
 
 		CheckOpenCLError(clGetDeviceIDs(platform[i], CL_DEVICE_TYPE_GPU, 0, NULL, &devicesCount), "clGetDeviceIDs: ");
 		device = (cl_device_id *)malloc(devicesCount * sizeof(cl_device_id));
 		if (device == NULL) {
-			cout << "ERROR: malloc\n";
-			cin.ignore();
-			return -1;
+			cout << "ERROR: malloc\n"; cin.ignore(); return -1;
 		}
 		CheckOpenCLError(clGetDeviceIDs(platform[i], CL_DEVICE_TYPE_GPU, devicesCount, device, NULL), "clGetDeviceIDs: ");
 
@@ -178,7 +208,7 @@ int main(int argc, char* argv[])
 			cout << "Nenalezeno GPU device\n";
 			cin.ignore();
 			free(device);
-			return -1;			
+			return -1;
 		}
 
 		free(device);
@@ -236,22 +266,18 @@ int main(int argc, char* argv[])
 	cl_event resultInverseEvent = clCreateUserEvent(context, &errMsg);
 	CheckOpenCLError(errMsg, "clCreateUserEvent: ");
 
-	size_t local[2] = { 32, 32 };
+	size_t local[2] = { 16, 16 };
 	size_t global[2];
 	global[0] = iCeilTo(matrixWidth, local[0]);
 	global[1] = global[0];
 	cl_double resultDet;
-	cl_double *resultGem = (cl_double *) malloc(matrixSize * sizeof(cl_double));
+	cl_double *resultGem = (cl_double *)malloc(matrixSize * sizeof(cl_double));
 	if (resultGem == NULL) {
-		cout << "ERROR: malloc\n";
-		cin.ignore();
-		return -1;
+		cout << "ERROR: malloc\n"; cin.ignore(); return -1;
 	}
 	cl_double *resultInverse = (cl_double *)malloc(matrixSize * sizeof(cl_double));
 	if (resultInverse == NULL) {
-		cout << "ERROR: malloc\n";
-		cin.ignore();
-		return -1;
+		cout << "ERROR: malloc\n"; cin.ignore(); return -1;
 	}
 
 	CheckOpenCLError(clSetKernelArg(kernelDet, 0, sizeof(cl_mem), &inputBuffer), "clSetKernelArg: ");
@@ -267,7 +293,7 @@ int main(int argc, char* argv[])
 	CheckOpenCLError(clSetKernelArg(kernelInverse, 2, sizeof(cl_int), &matrixSize), "clSetKernelArg: ");
 
 	CheckOpenCLError(clEnqueueWriteBuffer(queue, inputBuffer, CL_FALSE, 0, matrixSize, matrix, 0, NULL, &inputEvent), "clEnqueueWriteBuffer: ");
-	
+
 	//CheckOpenCLError(clEnqueueWriteBuffer(queue, resultBufferDet, CL_FALSE, 0, 1, 0, 0, NULL, NULL), "clEnqueueWriteBuffer: ");
 	CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelDet, 2, NULL, global, local, 0, NULL, &kernelDetEvent), "clEnqueueNDRangeKernel: ");
 	CheckOpenCLError(clEnqueueReadBuffer(queue, resultBufferDet, CL_FALSE, 0, 1, &resultDet, 0, NULL, &resultDetEvent), "clEnqueueWriteBuffer: ");
@@ -279,7 +305,7 @@ int main(int argc, char* argv[])
 	//CheckOpenCLError(clEnqueueWriteBuffer(queue, resultBufferInverse, CL_FALSE, 0, matrixSize, resultInit, 0, NULL, NULL), "clEnqueueWriteBuffer: ");
 	CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelInverse, 2, NULL, global, local, 0, NULL, &kernelInverseEvent), "clEnqueueNDRangeKernel: ");
 	CheckOpenCLError(clEnqueueReadBuffer(queue, resultBufferInverse, CL_FALSE, 0, matrixSize, resultInverse, 0, NULL, &resultInverseEvent), "clEnqueueWriteBuffer: ");
-	
+
 	CheckOpenCLError(clReleaseMemObject(inputBuffer), "clReleaseMemObject: ");
 	CheckOpenCLError(clReleaseMemObject(resultBufferDet), "clReleaseMemObject: ");
 	CheckOpenCLError(clReleaseMemObject(resultBufferGem), "clReleaseMemObject: ");
@@ -301,8 +327,86 @@ int main(int argc, char* argv[])
 	CheckOpenCLError(clReleaseKernel(kernelInverse), "clReleaseKernel: ");
 
 	CheckOpenCLError(clReleaseProgram(program), "clReleaseProgram: ");
-	CheckOpenCLError(clReleaseContext(context), "clReleaseContext: ");	
-	
+	CheckOpenCLError(clReleaseContext(context), "clReleaseContext: ");
+
+	/* Create input matrix with random data */
+	srand(1);
+	for (int i = 0; i < matrixSize; i++)
+	{
+		matrix[i] = (rand() % 10) - 5;
+	}
+
+	double *detMatrix = (double *)malloc(matrixSize * sizeof(double));
+	if (detMatrix == NULL) {
+		cout << "ERROR: malloc\n"; cin.ignore(); return -1;
+	}
+	memcpy(detMatrix, matrix, matrixSize * sizeof(double));
+
+	double *gemMatrix = (double *)malloc(matrixSize * sizeof(double));
+	if (gemMatrix == NULL) {
+		cout << "ERROR: malloc\n"; cin.ignore(); return -1;
+	}
+	memcpy(gemMatrix, matrix, matrixSize * sizeof(double));
+
+	double *invMatrix = (double *)malloc(matrixSize * sizeof(double));
+	if (invMatrix == NULL) {
+		cout << "ERROR: malloc\n"; cin.ignore(); return -1;
+	}
+	memcpy(invMatrix, matrix, matrixSize * sizeof(double));
+
+	double *invResult = (double *)malloc(matrixSize * sizeof(double));
+	if (invResult == NULL) {
+		cout << "ERROR: malloc\n"; cin.ignore(); return -1;
+	}
+	double *gemResult = (double *)malloc(matrixWidth * sizeof(double));
+	if (gemResult == NULL) {
+		cout << "ERROR: malloc\n"; cin.ignore(); return -1;
+	}
+
+	cout << "Input matrix (" << matrixWidth << "x" << matrixWidth << ")" << endl;
+	printMatrix(detMatrix, matrixWidth);
+
+	long double d;
+
+	int exp;
+	clock_t start = clock();
+	determinant(detMatrix, &d, &exp, matrixWidth);
+	clock_t end = clock();
+
+	cout << "Output determinant matrix:" << endl;
+	cout << float(end - start) << "ms" << endl;
+	printMatrix(detMatrix, matrixWidth);
+
+	cout << "Determinant: " << d;
+	if (exp > 0)
+	{
+		cout << "e+" << exp;
+	}
+	cout << endl;
+
+	start = clock();
+	gem(gemMatrix, gemResult, matrixWidth);
+	end = clock();
+
+	cout << endl << "Output gaussian elimination matrix: " << endl;
+	cout << float(end - start) << "ms" << endl;
+	printMatrix(gemMatrix, matrixWidth, gemResult, matrixWidth);
+
+	start = clock();
+	inverse(invMatrix, invResult, matrixWidth);
+	end = clock();
+
+	cout << endl << "Output inverted matrix: " << endl;
+	cout << float(end - start) << "ms" << endl;
+	printMatrix(gemMatrix, matrixWidth, invResult, matrixSize);
+
+	free(gemResult);
+	free(invResult);
+	free(invMatrix);
+	free(gemMatrix);
+	free(detMatrix);
+	free(matrix);
+
 	cin.ignore();
 
 	return 0;

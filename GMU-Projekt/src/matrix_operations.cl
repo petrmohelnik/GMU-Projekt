@@ -4,34 +4,29 @@ __kernel void determinant(__global double *m, __global double *r, int s)
 {
 }
 
-__kernel void gem(__global double *m, __global double *r, int s)
+__kernel void gem1(__global double *m, __global double *c, __global double *r, int s, int i)
+{
+	int g = (int)get_global_id(0);
+
+	if(g + i < s - 1) {
+		r[(g + i + 1) * s + i] = m[(g + i + 1) * s + i] / m[i * s + i];
+	}
+}
+
+__kernel void gem2(__global double *m, __global double *c, __global double *r, int s, int i)
 {
 	int g_x = (int)get_global_id(0);
 	int g_y = (int)get_global_id(1);
 
-	if((g_x < (s + 1)) && (g_y < s)) 
-	{
-		r[g_y * (s + 1) + g_x] = m[g_y * (s + 1) + g_x];
-		barrier(CLK_GLOBAL_MEM_FENCE);
-		for(int i = 1; i < s; i++)
-		{
-			if((g_y + i) < s)
-			{
-				float var = -1.0 * native_divide((float)r[(i - 1) * (s + 1) + (i - 1)], (float)r[(i + g_y) * (s + 1) + (i - 1)]);
-				r[(i + g_y) * (s + 1) + g_x] = r[(i-1) * (s + 1) + g_x] + (var * r[(i + g_y) * (s + 1) + g_x]);
-			}
-			barrier(CLK_GLOBAL_MEM_FENCE);
+	if((g_x + i < s - 1) && (g_y + i < s)) {
+		m[(g_x + i + 1) * s + g_y + i] -= r[(g_x + i + 1) * s + i] * m[i * s + g_y + i];
+
+		if(g_y == 0) {
+			c[g_x + i + 1] -= r[(g_x + i + 1) * s + i] * c[i];
 		}
 	}
 }
 
 __kernel void inverse(__global double *m, __global double *r, int s)
 {
-	int g_x = (int)get_global_id(0);
-	int g_y = (int)get_global_id(1);
-
-	if((g_x < (s + 1)) && (g_y < s)) 
-	{
-		r[g_y * (s + 1) + g_x] = 1.0;
-	}
 }

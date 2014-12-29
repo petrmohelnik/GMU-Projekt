@@ -132,7 +132,7 @@ unsigned int iCeilTo(unsigned int data, unsigned int align_size)
 	return ((data - 1 + align_size) / align_size) * align_size;
 }
 
-void printMatrix(double *matrix, int matrixWidth, double *result = NULL, int resultSize = 0)
+void printMatrix(float *matrix, int matrixWidth, float *result = NULL, int resultSize = 0)
 {
 	const int COUT_NUMBER_WIDTH = 7;
 	const int COUT_NUMBER_PRECISION = 3;
@@ -179,11 +179,11 @@ int main(int argc, char* argv[])
 	cl_int errMsg;
 	cl_int matrixWidth = 1500;
 	cl_int matrixSize = matrixWidth * matrixWidth;
-	cl_double *matrix = (cl_double *)malloc(matrixSize * sizeof(cl_double));
+	cl_float *matrix = (cl_float *)malloc(matrixSize * sizeof(cl_float));
 	if (matrix == NULL) {
 		cout << "ERROR: malloc\n"; cin.ignore(); return -1;
 	}
-	cl_double *gemColumn = (cl_double *)malloc(matrixWidth * sizeof(cl_double));
+	cl_float *gemColumn = (cl_float *)malloc(matrixWidth * sizeof(cl_float));
 	if (gemColumn == NULL) {
 		cout << "ERROR: malloc\n"; cin.ignore(); return -1;
 	}
@@ -191,7 +191,7 @@ int main(int argc, char* argv[])
 	srand(1);
 	for (int i = 0; i < matrixSize; i++)
 	{
-		matrix[i] = (rand() / static_cast <double> (RAND_MAX)) * 10 - 5;
+		matrix[i] = (rand() / static_cast <float> (RAND_MAX)) * 10 - 5;
 	}
 	for (int i = 0; i < matrixWidth; i++)
 	{
@@ -275,17 +275,17 @@ int main(int argc, char* argv[])
 	cl_kernel kernelInverse = clCreateKernel(program, "inverse", &errMsg);
 	CheckOpenCLError(errMsg, "clCreateKernel: ");
 
-	cl_mem inputBuffer = clCreateBuffer(context, CL_MEM_READ_ONLY, matrixSize * sizeof(cl_double), NULL, &errMsg);
+	cl_mem inputBuffer = clCreateBuffer(context, CL_MEM_READ_ONLY, matrixSize * sizeof(cl_float), NULL, &errMsg);
 	CheckOpenCLError(errMsg, "clCreateBuffer: ");
-	cl_mem gemInputBufferMatrix = clCreateBuffer(context, CL_MEM_READ_WRITE, matrixSize * sizeof(cl_double), NULL, &errMsg);
+	cl_mem gemInputBufferMatrix = clCreateBuffer(context, CL_MEM_READ_WRITE, matrixSize * sizeof(cl_float), NULL, &errMsg);
 	CheckOpenCLError(errMsg, "clCreateBuffer: ");
-	cl_mem gemInputBufferColumn = clCreateBuffer(context, CL_MEM_READ_WRITE, matrixWidth * sizeof(cl_double), NULL, &errMsg);
+	cl_mem gemInputBufferColumn = clCreateBuffer(context, CL_MEM_READ_WRITE, matrixWidth * sizeof(cl_float), NULL, &errMsg);
 	CheckOpenCLError(errMsg, "clCreateBuffer: ");
-	cl_mem resultBufferDet = clCreateBuffer(context, CL_MEM_WRITE_ONLY, matrixSize * sizeof(cl_double), NULL, &errMsg);
+	cl_mem resultBufferDet = clCreateBuffer(context, CL_MEM_WRITE_ONLY, matrixSize * sizeof(cl_float), NULL, &errMsg);
 	CheckOpenCLError(errMsg, "clCreateBuffer: ");
-	cl_mem resultBufferGem = clCreateBuffer(context, CL_MEM_READ_WRITE, matrixSize * sizeof(cl_double), NULL, &errMsg);
+	cl_mem resultBufferGem = clCreateBuffer(context, CL_MEM_READ_WRITE, matrixSize * sizeof(cl_float), NULL, &errMsg);
 	CheckOpenCLError(errMsg, "clCreateBuffer: ");
-	cl_mem resultBufferInverse = clCreateBuffer(context, CL_MEM_READ_WRITE, matrixSize * sizeof(cl_double), NULL, &errMsg);
+	cl_mem resultBufferInverse = clCreateBuffer(context, CL_MEM_READ_WRITE, matrixSize * sizeof(cl_float), NULL, &errMsg);
 	CheckOpenCLError(errMsg, "clCreateBuffer: ");
 
 	cl_event inputEvent = clCreateUserEvent(context, &errMsg);
@@ -319,23 +319,23 @@ int main(int argc, char* argv[])
 		local[0] /= 2;
 		local[1] /= 2;
 	}
-	
+
 	size_t global[2];
 	global[0] = (size_t)matrixWidth;
 	global[1] = (size_t)matrixWidth;
 	size_t local2 = local[0] * local[1];
-	size_t global2 = (size_t) matrixWidth;
+	size_t global2 = (size_t)matrixWidth;
 
-	cl_double resultDet;
-	cl_double *resultGem = (cl_double *)malloc(matrixSize * sizeof(cl_double));
+	cl_float resultDet;
+	cl_float *resultGem = (cl_float *)malloc(matrixSize * sizeof(cl_float));
 	if (resultGem == NULL) {
 		cout << "ERROR: malloc\n"; cin.ignore(); return -1;
 	}
-	cl_double *resultGemColumn = (cl_double *)malloc(matrixWidth * sizeof(cl_double));
+	cl_float *resultGemColumn = (cl_float *)malloc(matrixWidth * sizeof(cl_float));
 	if (resultGem == NULL) {
 		cout << "ERROR: malloc\n"; cin.ignore(); return -1;
 	}
-	cl_double *resultInverse = (cl_double *)malloc(matrixSize * sizeof(cl_double));
+	cl_float *resultInverse = (cl_float *)malloc(matrixSize * sizeof(cl_float));
 	if (resultInverse == NULL) {
 		cout << "ERROR: malloc\n"; cin.ignore(); return -1;
 	}
@@ -348,15 +348,15 @@ int main(int argc, char* argv[])
 	CheckOpenCLError(clSetKernelArg(kernelInverse, 1, sizeof(cl_mem), &resultBufferInverse), "clSetKernelArg: ");
 	CheckOpenCLError(clSetKernelArg(kernelInverse, 2, sizeof(cl_int), &matrixWidth), "clSetKernelArg: ");
 
-	CheckOpenCLError(clEnqueueWriteBuffer(queue, inputBuffer, CL_FALSE, 0, matrixSize * sizeof(cl_double), matrix, 0, NULL, &inputEvent), "clEnqueueWriteBuffer: ");
-	CheckOpenCLError(clEnqueueWriteBuffer(queue, gemInputBufferMatrix, CL_FALSE, 0, matrixSize * sizeof(cl_double), matrix, 0, NULL, &gemInputEvent), "clEnqueueWriteBuffer: 1: ");
-	CheckOpenCLError(clEnqueueWriteBuffer(queue, gemInputBufferColumn, CL_FALSE, 0, matrixWidth * sizeof(cl_double), gemColumn, 0, NULL, &gemInputColumnEvent), "clEnqueueWriteBuffer: 1: ");
-	
+	CheckOpenCLError(clEnqueueWriteBuffer(queue, inputBuffer, CL_FALSE, 0, matrixSize * sizeof(cl_float), matrix, 0, NULL, &inputEvent), "clEnqueueWriteBuffer: ");
+	CheckOpenCLError(clEnqueueWriteBuffer(queue, gemInputBufferMatrix, CL_FALSE, 0, matrixSize * sizeof(cl_float), matrix, 0, NULL, &gemInputEvent), "clEnqueueWriteBuffer: 1: ");
+	CheckOpenCLError(clEnqueueWriteBuffer(queue, gemInputBufferColumn, CL_FALSE, 0, matrixWidth * sizeof(cl_float), gemColumn, 0, NULL, &gemInputColumnEvent), "clEnqueueWriteBuffer: 1: ");
+
 	//CheckOpenCLError(clEnqueueWriteBuffer(queue, resultBufferDet, CL_FALSE, 0, 1, 0, 0, NULL, NULL), "clEnqueueWriteBuffer: ");
 	CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelDet, 2, NULL, global, NULL, 0, NULL, &kernelDetEvent), "clEnqueueNDRangeKernel: 1: ");
-	CheckOpenCLError(clEnqueueReadBuffer(queue, resultBufferDet, CL_FALSE, 0, sizeof(cl_double), &resultDet, 0, NULL, &resultDetEvent), "clEnqueueWriteBuffer: ");
-	
-	double gem1Time = 0.0, gem2Time = 0.0;
+	CheckOpenCLError(clEnqueueReadBuffer(queue, resultBufferDet, CL_FALSE, 0, sizeof(cl_float), &resultDet, 0, NULL, &resultDetEvent), "clEnqueueWriteBuffer: ");
+
+	float gem1Time = 0.0, gem2Time = 0.0;
 	for (int i = 0; i < (matrixWidth - 1); i++)
 	{
 		CheckOpenCLError(clSetKernelArg(kernelGem1, 0, sizeof(cl_mem), &gemInputBufferMatrix), "clSetKernelArg: ");
@@ -374,49 +374,47 @@ int main(int argc, char* argv[])
 		CheckOpenCLError(clSetKernelArg(kernelGem2, 4, sizeof(cl_int), &i), "clSetKernelArg: ");
 
 		CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelGem2, 2, NULL, global, NULL, 0, NULL, &kernelGem2Event), "clEnqueueNDRangeKernel: 2: ");
-		
+
 		CheckOpenCLError(clFinish(queue), "clFinish: ");
 		gem1Time += getEventTime(kernelGem1Event);
 		gem2Time += getEventTime(kernelGem2Event);
 		clReleaseEvent(kernelGem1Event);
 		clReleaseEvent(kernelGem2Event);
 	}
-	
-	CheckOpenCLError(clEnqueueReadBuffer(queue, gemInputBufferMatrix, CL_FALSE, 0, matrixSize * sizeof(cl_double), resultGem, 0, NULL, &resultGemMatrixEvent), "clEnqueueWriteBuffer: ");
-	CheckOpenCLError(clEnqueueReadBuffer(queue, gemInputBufferColumn, CL_FALSE, 0, matrixWidth * sizeof(cl_double), resultGemColumn, 0, NULL, &resultGemColumnEvent), "clEnqueueWriteBuffer: ");
-	
-	
-	
+
+	CheckOpenCLError(clEnqueueReadBuffer(queue, gemInputBufferMatrix, CL_FALSE, 0, matrixSize * sizeof(cl_float), resultGem, 0, NULL, &resultGemMatrixEvent), "clEnqueueWriteBuffer: ");
+	CheckOpenCLError(clEnqueueReadBuffer(queue, gemInputBufferColumn, CL_FALSE, 0, matrixWidth * sizeof(cl_float), resultGemColumn, 0, NULL, &resultGemColumnEvent), "clEnqueueWriteBuffer: ");
+
 	//CheckOpenCLError(clEnqueueWriteBuffer(queue, resultBufferInverse, CL_FALSE, 0, matrixSize, resultInit, 0, NULL, NULL), "clEnqueueWriteBuffer: ");
 	CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelInverse, 2, NULL, global, NULL, 0, NULL, &kernelInverseEvent), "clEnqueueNDRangeKernel: 3: ");
 
-	CheckOpenCLError(clEnqueueReadBuffer(queue, resultBufferInverse, CL_FALSE, 0, matrixSize * sizeof(cl_double), resultInverse, 0, NULL, &resultInverseEvent), "clEnqueueWriteBuffer: ");
-	
+	CheckOpenCLError(clEnqueueReadBuffer(queue, resultBufferInverse, CL_FALSE, 0, matrixSize * sizeof(cl_float), resultInverse, 0, NULL, &resultInverseEvent), "clEnqueueWriteBuffer: ");
+
 	CheckOpenCLError(clFinish(queue), "clFinish: ");
 
-	double *detMatrix = (double *)malloc(matrixSize * sizeof(double));
+	float *detMatrix = (float *)malloc(matrixSize * sizeof(float));
 	if (detMatrix == NULL) {
 		cout << "ERROR: malloc\n"; cin.ignore(); return -1;
 	}
-	memcpy(detMatrix, matrix, matrixSize * sizeof(double));
+	memcpy(detMatrix, matrix, matrixSize * sizeof(float));
 
-	double *gemMatrix = (double *)malloc(matrixSize * sizeof(double));
+	float *gemMatrix = (float *)malloc(matrixSize * sizeof(float));
 	if (gemMatrix == NULL) {
 		cout << "ERROR: malloc\n"; cin.ignore(); return -1;
 	}
-	memcpy(gemMatrix, matrix, matrixSize * sizeof(double));
+	memcpy(gemMatrix, matrix, matrixSize * sizeof(float));
 
-	double *invMatrix = (double *)malloc(matrixSize * sizeof(double));
+	float *invMatrix = (float *)malloc(matrixSize * sizeof(float));
 	if (invMatrix == NULL) {
 		cout << "ERROR: malloc\n"; cin.ignore(); return -1;
 	}
-	memcpy(invMatrix, matrix, matrixSize * sizeof(double));
+	memcpy(invMatrix, matrix, matrixSize * sizeof(float));
 
-	double *invResult = (double *)malloc(matrixSize * sizeof(double));
+	float *invResult = (float *)malloc(matrixSize * sizeof(float));
 	if (invResult == NULL) {
 		cout << "ERROR: malloc\n"; cin.ignore(); return -1;
 	}
-	double *gemResult = (double *)malloc(matrixWidth * sizeof(double));
+	float *gemResult = (float *)malloc(matrixWidth * sizeof(float));
 	if (gemResult == NULL) {
 		cout << "ERROR: malloc\n"; cin.ignore(); return -1;
 	}
@@ -427,11 +425,11 @@ int main(int argc, char* argv[])
 	//tohle je cpu cast z toho navodu na cuda
 	////////////////////
 	clock_t TimeGemCPU = clock();
-	double *resultGemColumnGPU = (double*)malloc(sizeof(double)*(matrixWidth));
+	float *resultGemColumnGPU = (float*)malloc(sizeof(float)*(matrixWidth));
 	int i, j;
 	for (i = 0; i < matrixWidth; i++){
 		resultGemColumnGPU[matrixWidth - i - 1] = resultGemColumn[matrixWidth - i - 1];
-		for (j = 0; j<i; j++)
+		for (j = 0; j < i; j++)
 		{
 			resultGemColumnGPU[matrixWidth - i - 1] -= *(resultGem + matrixWidth*(matrixWidth - i - 1) + (matrixWidth - j - 1)) * resultGemColumnGPU[matrixWidth - j - 1];
 		}
@@ -442,21 +440,21 @@ int main(int argc, char* argv[])
 	//int j;
 	/*for (int i = matrixWidth - 1; i >= 0; i--)
 	{
-		double sum = 0.0;
+	float sum = 0.0;
 
-		for (j = matrixWidth - 1; j>i; j--)
-		{
-			sum = sum + result[j] * resultGem[i*(matrixWidth + 1) + j];
-		}
-		double rvalue = resultGem[i*(matrixWidth + 1) + matrixWidth] - sum;
-		result[i] = rvalue / resultGem[i *(matrixWidth + 1) + j];
+	for (j = matrixWidth - 1; j>i; j--)
+	{
+	sum = sum + result[j] * resultGem[i*(matrixWidth + 1) + j];
+	}
+	float rvalue = resultGem[i*(matrixWidth + 1) + matrixWidth] - sum;
+	result[i] = rvalue / resultGem[i *(matrixWidth + 1) + j];
 	}
 	*/
-	//Displaying the result 
+	//Displaying the result
 	/*printf("\n\t\tVALUES OF VARIABLES\n\n");
 	for (int i = 0; i<matrixWidth; i++)
 	{
-		printf("[X%d] = %+f\n", i, result[i]);
+	printf("[X%d] = %+f\n", i, result[i]);
 	}*/
 	////////////////////
 
@@ -466,44 +464,42 @@ int main(int argc, char* argv[])
 	cout << "TimeGemCPU: " << float(TimeGemCPU) << "ms\n";
 	cout << "read: " << (getEventTime(resultGemMatrixEvent) + getEventTime(resultGemColumnEvent)) << "ms\n";
 
-
-	long double d;
-
+	float d;
 	int exp;
-	clock_t start = clock();
-	determinant(detMatrix, &d, &exp, matrixWidth);
-	clock_t end = clock();
 
-	cout << "Output determinant matrix:" << endl;
-	cout << float(end - start) << "ms" << endl;
+	clock_t cpuDetTime = clock();
+	determinant(detMatrix, &d, &exp, matrixWidth);
+	cpuDetTime = clock() - cpuDetTime;
+
+	cout << "Determinant CPU output matrix:" << endl;
 	printMatrix(detMatrix, matrixWidth);
 
-	cout << "Determinant: " << d;
+	cout << "CPU Determinant: " << d;
 	if (exp > 0)
 	{
 		cout << "e+" << exp;
 	}
 	cout << endl;
 
-	start = clock();
+	clock_t cpuGemTime = clock();
 	gem(gemMatrix, gemResult, matrixWidth);
-	end = clock();
+	cpuGemTime = clock() - cpuGemTime;
 
-	cout << endl << "Output gaussian elimination matrix: " << endl;
-	cout << float(end - start) << "ms" << endl;
+	cout << "\n\nGEM CPU output matrix (" << matrixWidth << "x" << matrixWidth << ")" << endl;
 	printMatrix(gemMatrix, matrixWidth, gemResult, matrixWidth);
 
 	cout << "\n\nGEM GPU output matrix (" << matrixWidth << "x" << matrixWidth << ")" << endl;
 	printMatrix(resultGem, matrixWidth, resultGemColumnGPU, matrixWidth);
 
-	start = clock();
+	clock_t cpuInvTime = clock();
 	inverse(invMatrix, invResult, matrixWidth);
-	end = clock();
+	cpuInvTime = clock() - cpuInvTime;
 
-	cout << endl << "Output inverted matrix: " << endl;
-	cout << float(end - start) << "ms" << endl;
+	cout << endl << "Inverted CPU output matrix: " << endl;
 	printMatrix(gemMatrix, matrixWidth, invResult, matrixSize);
 
+	cout << "CPU/GPU Times:\nCPU determinant (ms): " << cpuDetTime << "\nGPU determinant (ms): " << "\nCPU GEM (ms): "
+		<< cpuGemTime << "\nGPU GEM (ms): " << gem2Time << "\nCPU Invert (ms): " << cpuInvTime << "\nGPU Invert (ms): " << endl;
 
 	CheckOpenCLError(clReleaseMemObject(inputBuffer), "clReleaseMemObject: ");
 	CheckOpenCLError(clReleaseMemObject(gemInputBufferMatrix), "clReleaseMemObject: ");
@@ -515,8 +511,8 @@ int main(int argc, char* argv[])
 	CheckOpenCLError(clReleaseEvent(inputEvent), "clReleaseEvent: ");
 	CheckOpenCLError(clReleaseEvent(kernelDetEvent), "clReleaseEvent: ");
 	CheckOpenCLError(clReleaseEvent(resultDetEvent), "clReleaseEvent: ");
-//	CheckOpenCLError(clReleaseEvent(kernelGem1Event), "clReleaseEvent: ");
-//	CheckOpenCLError(clReleaseEvent(kernelGem2Event), "clReleaseEvent: ");
+	//	CheckOpenCLError(clReleaseEvent(kernelGem1Event), "clReleaseEvent: ");
+	//	CheckOpenCLError(clReleaseEvent(kernelGem2Event), "clReleaseEvent: ");
 	CheckOpenCLError(clReleaseEvent(resultGemMatrixEvent), "clReleaseEvent: ");
 	CheckOpenCLError(clReleaseEvent(resultGemColumnEvent), "clReleaseEvent: ");
 	CheckOpenCLError(clReleaseEvent(kernelInverseEvent), "clReleaseEvent: ");

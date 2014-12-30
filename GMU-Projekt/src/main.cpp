@@ -162,6 +162,24 @@ void printMatrix(float *matrix, int matrixWidth, float *result = NULL, int resul
 #endif
 }
 
+void getDeterminant(float* m, int matrixWidth, float* d, int *exp)
+{
+	*exp = 0;
+	*d = 1;
+	// Compute determinant from main diagonal
+	for (int i = 0; i < matrixWidth; i++)
+	{
+		*d = *d * floorf(m[i*matrixWidth + i] * pow(10.0f, 3) + .5f) / pow(10.0f, 3);
+
+		// Prevent infinity result
+		if (*d > 1000000 || *d < -1000000)
+		{
+			*exp += 6;
+			*d /= 1000000;
+		}
+	}
+}
+
 //ze cvik
 double getEventTime(cl_event i_event)
 {
@@ -554,6 +572,7 @@ int main(int argc, char* argv[])
 	cout << "Determinant CPU output matrix:" << endl;
 	printMatrix(detMatrix, matrixWidth);
 
+	getDeterminant(detMatrix, matrixWidth, &d, &exp);
 	cout << "CPU Determinant: " << d;
 	if (exp > 0)
 	{
@@ -564,20 +583,7 @@ int main(int argc, char* argv[])
 	cout << "Determinant GPU output matrix:" << endl;
 	printMatrix(resultDet, matrixWidth);
 
-	d = 1;
-	exp = 0;
-	for (int i = 0; i < matrixWidth; i++)
-	{
-		d = d * resultDet[i*matrixWidth + i];
-
-		// Prevent infinity result
-		if (d > 1000000 || d < -1000000)
-		{
-			exp += 6;
-			d /= 1000000;
-		}
-	}
-
+	getDeterminant(resultDet, matrixWidth, &d, &exp);
 	cout << "GPU Determinant: " << d;
 	if (exp > 0)
 	{
@@ -605,7 +611,7 @@ int main(int argc, char* argv[])
 	cout << "\n\nInverted GPU output matrix:" << endl;
 	printMatrix(resultInverse, matrixWidth, resultInverseOnes, matrixSize);
 
-	cout << "CPU/GPU Times:\nCPU determinant (ms): " << cpuDetTime << "\nGPU determinant (ms): " << "\nCPU GEM (ms): "
+	cout << "CPU/GPU Times:\nCPU determinant (ms): " << cpuDetTime << "\nGPU determinant (ms): " << detTime << "\nCPU GEM (ms): "
 		<< cpuGemTime << "\nGPU GEM (ms): " << gem1Time + gem2Time << "\nCPU Invert (ms): " << cpuInvTime << "\nGPU Invert (ms): " << invTime << endl;
 
 	// Release buffers

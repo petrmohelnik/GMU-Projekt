@@ -1,3 +1,3 @@
-void determinant(double *, long double *, int *, int);
-void gem(double *, double *, int);
-void inverse(double *, double *, int);
+void determinant(float *, long double *, int *, int);
+void gem(float *, float *, int);
+void inverse(float *, float *, int);

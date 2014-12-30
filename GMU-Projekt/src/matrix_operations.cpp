@@ -54,7 +54,7 @@ void determinant(float *A, float *d, int *exp, int matrixSize)
 		// Prevent infinity result
 		if (*d > 1000000 || *d < -1000000)
 		{
-			exp += 6;
+			*exp += 6;
 			*d /= 1000000;
 		}
 	}

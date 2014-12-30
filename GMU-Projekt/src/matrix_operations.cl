@@ -5,7 +5,7 @@ __kernel void determinant(__global float *m, int s, int i)
 	int g_x = (int)get_global_id(0);
 	int g_y = (int)get_global_id(1);
 
-	float rat = m[g_y * s + i] / m[i * s + i];
+	float rat = native_divide(m[g_y * s + i], m[i * s + i]);
 
 	if ((g_x < s) && (g_y < s) && i != g_y)
 	{
@@ -44,11 +44,11 @@ __kernel void gem(__global float *m, __global float *c, int s, int i)
 	float divider = m[i * s + i];
 	barrier(CLK_LOCAL_MEM_FENCE);
 
-	m[i * s + g_x] /= divider;
-	c[i] /= divider;
+	m[i * s + g_x] = native_divide(m[i * s + g_x], divider);
+	c[i] = native_divide(c[i], divider);
 
 	barrier(CLK_LOCAL_MEM_FENCE);
-	float rat = m[g_y * s + i] / m[i * s + i];
+	float rat = native_divide(m[g_y * s + i], m[i * s + i]);
 
 	if ((g_x < s) && (g_y < s) && i != g_y)
 	{
@@ -65,11 +65,11 @@ __kernel void inverse(__global float *m, __global float *im, int s, int i)
 	float divider = m[i * s + i];
 	barrier(CLK_LOCAL_MEM_FENCE);
 
-	m[i * s + g_x] /= divider;
-	im[i * s + g_x] /= divider;
+	m[i * s + g_x] = native_divide(m[i * s + g_x], divider);
+	im[i * s + g_x] = native_divide(im[i * s + g_x], divider);
 
 	barrier(CLK_LOCAL_MEM_FENCE);
-	float rat = m[g_y * s + i] / m[i * s + i];
+	float rat = native_divide(m[g_y * s + i], m[i * s + i]);
 
 	if ((g_x < s) && (g_y < s) && i != g_y)
 	{

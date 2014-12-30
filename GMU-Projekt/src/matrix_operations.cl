@@ -4,15 +4,35 @@ __kernel void determinant(__global float *m, int s, int i)
 {
 	int g_x = (int)get_global_id(0);
 	int g_y = (int)get_global_id(1);
-	/*if ((g_x + i < s - 1) && (g_y + i < s))
-	{
-	m[(g_x + i + 1) * s + g_y + i] -= r[(g_x + i + 1) * s + i] * m[i * s + g_y + i];
-	}*/
+
 	float rat = m[g_y * s + i] / m[i * s + i];
 
 	if ((g_x < s) && (g_y < s) && i != g_y)
 	{
 		m[g_y * s + g_x] -= rat * m[i * s + g_x];
+	}
+}
+
+__kernel void gem1(__global float *m, __global float *c, __global float *r, int s, int i)
+{
+	int g = (int)get_global_id(0);
+
+	if (g + i < s - 1) {
+		r[g + i + 1] = native_divide(m[(g + i + 1) * s + i], m[i * s + i]);
+	}
+}
+
+__kernel void gem2(__global float *m, __global float *c, __global float* r, int s, int i)
+{
+	int g_x = (int)get_global_id(0);
+	int g_y = (int)get_global_id(1);
+
+	if ((g_x + i < s - 1) && (g_y + i < s)) {
+		m[(g_x + i + 1) * s + g_y + i] -= r[g_x + i + 1] * m[i * s + g_y + i];
+
+		if (g_y == 0) {
+			c[g_x + i + 1] -= r[g_x + i + 1] * c[i];
+		}
 	}
 }
 

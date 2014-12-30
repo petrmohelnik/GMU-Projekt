@@ -8,6 +8,28 @@ void determinant(float *A, float *d, int *exp, int matrixSize)
 	// Compute gaussian elimination
 	for (int pivot = 0; pivot < matrixSize - 1; pivot++)
 	{
+		if (A[pivot*matrixSize + pivot] == 0)
+		{
+			// find non zero row
+			int sy;
+			for (sy = pivot + 1; sy < matrixSize; sy++)
+			{
+				if (A[sy*matrixSize + pivot] != 0)
+				{
+					break;
+				}
+			}
+
+			// swap lines -- FOR can be parallelized
+			for (int sx = pivot; sx < matrixSize; sx++)
+			{
+				long float tmp = A[pivot*matrixSize + sx];
+				A[pivot*matrixSize + sx] = A[sy*matrixSize + sx];
+				A[sy*matrixSize + sx] = tmp;
+			}
+			*d *= -1;
+		}
+
 		// FOR can be parallelized
 		for (int y = pivot + 1; y < matrixSize; y++)
 		{
@@ -48,6 +70,28 @@ void gem(float *A, float *result, int matrixSize)
 	// Compute gaussian elimination
 	for (int pivot = 0; pivot < matrixSize; pivot++)
 	{
+		if (A[pivot*matrixSize + pivot] == 0)
+		{
+			// find non zero row
+			int sy;
+			for (sy = pivot + 1; sy < matrixSize; sy++)
+			{
+				if (A[sy*matrixSize + pivot] != 0)
+				{
+					break;
+				}
+			}
+
+			// swap lines -- FOR can be parallelized
+			for (int sx = pivot; sx < matrixSize; sx++)
+			{
+				long float tmp = A[pivot*matrixSize + sx];
+				A[pivot*matrixSize + sx] = -A[sy*matrixSize + sx];
+				A[sy*matrixSize + sx] = tmp;
+			}
+			result[pivot] *= -1;
+		}
+
 		float divider = A[pivot*matrixSize + pivot];
 		for (int x = pivot; x < matrixSize; x++)
 		{
@@ -81,6 +125,29 @@ void inverse(float *A, float *result, int matrixSize)
 	// Compute gaussian elimination
 	for (int pivot = 0; pivot < matrixSize; pivot++)
 	{
+		if (A[pivot*matrixSize + pivot] == 0)
+		{
+			// find non zero row
+			int sy;
+			for (sy = pivot + 1; sy < matrixSize; sy++)
+			{
+				if (A[sy*matrixSize + pivot] != 0)
+				{
+					break;
+				}
+			}
+
+			// swap lines -- FOR can be parallelized
+			for (int sx = pivot; sx < matrixSize; sx++)
+			{
+				long float tmp = A[pivot*matrixSize + sx];
+				A[pivot*matrixSize + sx] = -A[sy*matrixSize + sx];
+				A[sy*matrixSize + sx] = tmp;
+
+				result[pivot*matrixSize + sx] *= -1;
+			}
+		}
+
 		float divider = A[pivot*matrixSize + pivot];
 		for (int x = pivot; x < matrixSize; x++)
 		{

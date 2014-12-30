@@ -78,11 +78,6 @@ void gem(float *A, float *result, int matrixSize)
 
 void inverse(float *A, float *result, int matrixSize)
 {
-	// fill ones to diagonal of result matrix
-	for (int i = 0; i < matrixSize*matrixSize; i++)
-	{
-		result[i] = (float)!(bool)(i % (matrixSize + 1));
-	}
 	// Compute gaussian elimination
 	for (int pivot = 0; pivot < matrixSize; pivot++)
 	{

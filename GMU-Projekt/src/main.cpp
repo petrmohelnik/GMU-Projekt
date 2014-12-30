@@ -177,7 +177,7 @@ int main(int argc, char* argv[])
 	cl_platform_id *platform;
 	cl_device_id gpuDevice;
 	cl_int errMsg;
-	cl_int matrixWidth = 4086;
+	cl_int matrixWidth = 1500;
 	cl_int matrixSize = matrixWidth * matrixWidth;
 	cl_float *matrix = (cl_float *)malloc(matrixSize * sizeof(cl_float));
 	if (matrix == NULL) {
@@ -319,7 +319,7 @@ int main(int argc, char* argv[])
 		local[0] /= 2;
 		local[1] /= 2;
 	}
-	
+
 	size_t global[2];
 	global[0] = iCeilTo(matrixWidth, local[0]);
 	global[1] = iCeilTo(matrixWidth, local[1]);
@@ -384,14 +384,12 @@ int main(int argc, char* argv[])
 	
 	CheckOpenCLError(clEnqueueReadBuffer(queue, gemInputBufferMatrix, CL_FALSE, 0, matrixSize * sizeof(cl_float), resultGem, 0, NULL, &resultGemMatrixEvent), "clEnqueueWriteBuffer: ");
 	CheckOpenCLError(clEnqueueReadBuffer(queue, gemInputBufferColumn, CL_FALSE, 0, matrixWidth * sizeof(cl_float), resultGemColumn, 0, NULL, &resultGemColumnEvent), "clEnqueueWriteBuffer: ");
-	
-	
-	
+
 	//CheckOpenCLError(clEnqueueWriteBuffer(queue, resultBufferInverse, CL_FALSE, 0, matrixSize, resultInit, 0, NULL, NULL), "clEnqueueWriteBuffer: ");
 	CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelInverse, 2, NULL, global, local, 0, NULL, &kernelInverseEvent), "clEnqueueNDRangeKernel: 3: ");
 
 	CheckOpenCLError(clEnqueueReadBuffer(queue, resultBufferInverse, CL_FALSE, 0, matrixSize * sizeof(cl_float), resultInverse, 0, NULL, &resultInverseEvent), "clEnqueueWriteBuffer: ");
-	
+
 	CheckOpenCLError(clFinish(queue), "clFinish: ");
 
 	float *detMatrix = (float *)malloc(matrixSize * sizeof(float));
@@ -431,7 +429,7 @@ int main(int argc, char* argv[])
 	int i, j;
 	for (i = 0; i < matrixWidth; i++){
 		resultGemColumnGPU[matrixWidth - i - 1] = resultGemColumn[matrixWidth - i - 1];
-		for (j = 0; j<i; j++)
+		for (j = 0; j < i; j++)
 		{
 			resultGemColumnGPU[matrixWidth - i - 1] -= *(resultGem + matrixWidth*(matrixWidth - i - 1) + (matrixWidth - j - 1)) * resultGemColumnGPU[matrixWidth - j - 1];
 		}
@@ -439,71 +437,48 @@ int main(int argc, char* argv[])
 	}
 	TimeGemCPU = clock() - TimeGemCPU;
 
-	//int j;
-	/*for (int i = matrixWidth - 1; i >= 0; i--)
-	{
-		float sum = 0.0;
-
-		for (j = matrixWidth - 1; j>i; j--)
-		{
-			sum = sum + result[j] * resultGem[i*(matrixWidth + 1) + j];
-		}
-		float rvalue = resultGem[i*(matrixWidth + 1) + matrixWidth] - sum;
-		result[i] = rvalue / resultGem[i *(matrixWidth + 1) + j];
-	}
-	*/
-	//Displaying the result 
-	/*printf("\n\t\tVALUES OF VARIABLES\n\n");
-	for (int i = 0; i<matrixWidth; i++)
-	{
-		printf("[X%d] = %+f\n", i, result[i]);
-	}*/
-	////////////////////
-
 	cout << "write: " << (getEventTime(gemInputEvent) + getEventTime(gemInputColumnEvent)) << "ms\n";
 	cout << "kernel1: " << gem1Time << "ms\n";
 	cout << "kernel2: " << gem2Time << "ms\n";
 	cout << "TimeGemCPU: " << float(TimeGemCPU) << "ms\n";
 	cout << "read: " << (getEventTime(resultGemMatrixEvent) + getEventTime(resultGemColumnEvent)) << "ms\n";
 
-
-	long double d;
-
+	float d;
 	int exp;
-	clock_t start = clock();
-	determinant(detMatrix, &d, &exp, matrixWidth);
-	clock_t end = clock();
 
-	cout << "Output determinant matrix:" << endl;
-	cout << float(end - start) << "ms" << endl;
+	clock_t cpuDetTime = clock();
+	determinant(detMatrix, &d, &exp, matrixWidth);
+	cpuDetTime = clock() - cpuDetTime;
+
+	cout << "Determinant CPU output matrix:" << endl;
 	printMatrix(detMatrix, matrixWidth);
 
-	cout << "Determinant: " << d;
+	cout << "CPU Determinant: " << d;
 	if (exp > 0)
 	{
 		cout << "e+" << exp;
 	}
 	cout << endl;
 
-	start = clock();
+	clock_t cpuGemTime = clock();
 	gem(gemMatrix, gemResult, matrixWidth);
-	end = clock();
+	cpuGemTime = clock() - cpuGemTime;
 
-	cout << endl << "Output gaussian elimination matrix: " << endl;
-	cout << float(end - start) << "ms" << endl;
+	cout << "\n\nGEM CPU output matrix (" << matrixWidth << "x" << matrixWidth << ")" << endl;
 	printMatrix(gemMatrix, matrixWidth, gemResult, matrixWidth);
 
 	cout << "\n\nGEM GPU output matrix (" << matrixWidth << "x" << matrixWidth << ")" << endl;
 	printMatrix(resultGem, matrixWidth, resultGemColumnGPU, matrixWidth);
 
-	start = clock();
+	clock_t cpuInvTime = clock();
 	inverse(invMatrix, invResult, matrixWidth);
-	end = clock();
+	cpuInvTime = clock() - cpuInvTime;
 
-	cout << endl << "Output inverted matrix: " << endl;
-	cout << float(end - start) << "ms" << endl;
+	cout << endl << "Inverted CPU output matrix: " << endl;
 	printMatrix(gemMatrix, matrixWidth, invResult, matrixSize);
 
+	cout << "CPU/GPU Times:\nCPU determinant (ms): " << cpuDetTime << "\nGPU determinant (ms): " << "\nCPU GEM (ms): "
+		<< cpuGemTime << "\nGPU GEM (ms): " << gem2Time + gem1Time << "\nCPU Invert (ms): " << cpuInvTime << "\nGPU Invert (ms): " << endl;
 
 	CheckOpenCLError(clReleaseMemObject(inputBuffer), "clReleaseMemObject: ");
 	CheckOpenCLError(clReleaseMemObject(gemInputBufferMatrix), "clReleaseMemObject: ");
@@ -515,8 +490,8 @@ int main(int argc, char* argv[])
 	CheckOpenCLError(clReleaseEvent(inputEvent), "clReleaseEvent: ");
 	CheckOpenCLError(clReleaseEvent(kernelDetEvent), "clReleaseEvent: ");
 	CheckOpenCLError(clReleaseEvent(resultDetEvent), "clReleaseEvent: ");
-//	CheckOpenCLError(clReleaseEvent(kernelGem1Event), "clReleaseEvent: ");
-//	CheckOpenCLError(clReleaseEvent(kernelGem2Event), "clReleaseEvent: ");
+	//	CheckOpenCLError(clReleaseEvent(kernelGem1Event), "clReleaseEvent: ");
+	//	CheckOpenCLError(clReleaseEvent(kernelGem2Event), "clReleaseEvent: ");
 	CheckOpenCLError(clReleaseEvent(resultGemMatrixEvent), "clReleaseEvent: ");
 	CheckOpenCLError(clReleaseEvent(resultGemColumnEvent), "clReleaseEvent: ");
 	CheckOpenCLError(clReleaseEvent(kernelInverseEvent), "clReleaseEvent: ");

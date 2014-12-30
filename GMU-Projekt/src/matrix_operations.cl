@@ -13,7 +13,7 @@ __kernel void gem1(__global float *m, __global float *c, __global float *r, int 
 	}
 }
 
-__kernel void gem2(__global float *m, __global float *c, __global float *r, int s, int i)
+__kernel void gem2(__global float *m, __global float *c, __global float* r, int s, int i)
 {
 	int g_x = (int)get_global_id(0);
 	int g_y = (int)get_global_id(1);

@@ -1,6 +1,6 @@
 #include "matrix_operations.h"
 
-void determinant(float *A, long double *d, int *exp, int matrixSize)
+void determinant(float *A, float *d, int *exp, int matrixSize)
 {
 	*d = 1.0;
 	*exp = 0;
@@ -29,10 +29,11 @@ void determinant(float *A, long double *d, int *exp, int matrixSize)
 			}
 			*d *= -1;
 		}
+
 		// FOR can be parallelized
 		for (int y = pivot + 1; y < matrixSize; y++)
 		{
-			long float multiplier = A[y*matrixSize + pivot] / A[pivot*matrixSize + pivot];
+			float multiplier = A[y*matrixSize + pivot] / A[pivot*matrixSize + pivot];
 
 			// multiply and substract "pivot" row from "y" row -- FOR can be parallelized
 			for (int x = pivot + 1; x < matrixSize; x++)
@@ -103,7 +104,7 @@ void gem(float *A, float *result, int matrixSize)
 		{
 			if (y != pivot)
 			{
-				long float multiplier = A[y*matrixSize + pivot] / A[pivot*matrixSize + pivot];
+				float multiplier = A[y*matrixSize + pivot] / A[pivot*matrixSize + pivot];
 
 				// multiply and substract "pivot" row from "y" row -- FOR can be parallelized
 				for (int x = pivot + 1; x < matrixSize; x++)
@@ -124,7 +125,7 @@ void inverse(float *A, float *result, int matrixSize)
 	// fill ones to diagonal of result matrix
 	for (int i = 0; i < matrixSize*matrixSize; i++)
 	{
-		result[i] = !(bool)(i % (matrixSize + 1));
+		result[i] = (float)!(bool)(i % (matrixSize + 1));
 	}
 	// Compute gaussian elimination
 	for (int pivot = 0; pivot < matrixSize; pivot++)
@@ -167,7 +168,7 @@ void inverse(float *A, float *result, int matrixSize)
 		{
 			if (y != pivot)
 			{
-				long float multiplier = A[y*matrixSize + pivot] / A[pivot*matrixSize + pivot];
+				float multiplier = A[y*matrixSize + pivot] / A[pivot*matrixSize + pivot];
 
 				// multiply and substract "pivot" row from "y" row -- FOR can be parallelized
 				for (int x = pivot + 1; x < matrixSize; x++)

@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <fstream>
 
+#define SIZE 1024 //velikost matice
 //#define PRINT_MATRIX	// comment out for large matrix (> 16x16)
 
 using namespace std;
@@ -195,7 +196,7 @@ int main(int argc, char* argv[])
 	cl_platform_id *platform;
 	cl_device_id gpuDevice;
 	cl_int errMsg;
-	cl_int matrixWidth = 1500;
+	cl_int matrixWidth = SIZE;
 	cl_int matrixSize = matrixWidth * matrixWidth;
 
 	/* Alocate matrix */
@@ -226,7 +227,7 @@ int main(int argc, char* argv[])
 	// fill gem column
 	for (int i = 0; i < matrixWidth; i++)
 	{
-		gemColumn[i] = 1.0;
+		gemColumn[i] = (rand() / static_cast <float> (RAND_MAX)) * 10 - 5;
 	}
 
 	// Get platform IDs
@@ -449,15 +450,16 @@ int main(int argc, char* argv[])
 		CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelDet, 2, NULL, global, local, 0, NULL, &kernelDetEvent), "clEnqueueNDRangeKernel: 1: ");
 
 		CheckOpenCLError(clFinish(queue), "clFinish: ");
-		detTime += getEventTime(kernelDetEvent);
+		detTime += getEventTime(kernelDetEvent) + getEventTime(kernelGem1Event);
 		clReleaseEvent(kernelDetEvent);
+		clReleaseEvent(kernelGem1Event);
 	}
 
 	// Read DET result
 	CheckOpenCLError(clEnqueueReadBuffer(queue, inputBuffer, CL_FALSE, 0, matrixSize * sizeof(cl_float), resultDet, 0, NULL, &resultDetEvent), "clEnqueueReadBuffer: ");
 
 	// RUN GEM
-	float gem1Time = 0.0, gem2Time = 0.0;
+	float gemTime = 0.0;
 	for (int i = 0; i < matrixWidth; i++)
 	{
 		CheckOpenCLError(clSetKernelArg(kernelGem1, 0, sizeof(cl_mem), &gemInputBufferMatrix), "clSetKernelArg: ");
@@ -477,8 +479,7 @@ int main(int argc, char* argv[])
 		CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelGem2, 2, NULL, global, local, 0, NULL, &kernelGem2Event), "clEnqueueNDRangeKernel: 2: ");
 
 		CheckOpenCLError(clFinish(queue), "clFinish: ");
-		gem1Time += getEventTime(kernelGem1Event);
-		gem2Time += getEventTime(kernelGem2Event);
+		gemTime += getEventTime(kernelGem1Event) + getEventTime(kernelGem2Event);
 		clReleaseEvent(kernelGem1Event);
 		clReleaseEvent(kernelGem2Event);
 	}
@@ -489,6 +490,7 @@ int main(int argc, char* argv[])
 
 	float *resultGemColumnGPU = (float*)malloc(sizeof(float)*(matrixWidth));
 	int i, j;
+	clock_t gemGpuCpuPart = clock();
 	for (i = 0; i < matrixWidth; i++){
 		resultGemColumnGPU[matrixWidth - i - 1] = resultGemColumn[matrixWidth - i - 1];
 		for (j = 0; j < i; j++)
@@ -497,6 +499,7 @@ int main(int argc, char* argv[])
 		}
 		resultGemColumnGPU[matrixWidth - i - 1] = resultGemColumnGPU[matrixWidth - i - 1] / *(resultGem + matrixWidth*(matrixWidth - i - 1) + (matrixWidth - i - 1));
 	}
+	gemGpuCpuPart = clock() - gemGpuCpuPart;
 
 	// RUN Inverse
 	global[1] *= 2;
@@ -540,6 +543,7 @@ int main(int argc, char* argv[])
 	if (gemMatrix == NULL) {
 		cout << "ERROR: malloc\n"; cin.ignore(); return -1;
 	}
+
 	memcpy(gemMatrix, matrix, matrixSize * sizeof(float));
 
 	float *invMatrix = (float *)malloc(matrixSize * sizeof(float));
@@ -553,10 +557,12 @@ int main(int argc, char* argv[])
 		cout << "ERROR: malloc\n"; cin.ignore(); return -1;
 	}
 	memcpy(invResult, inverseMatrix, matrixSize * sizeof(float));
+
 	float *gemResult = (float *)malloc(matrixWidth * sizeof(float));
 	if (gemResult == NULL) {
 		cout << "ERROR: malloc\n"; cin.ignore(); return -1;
 	}
+	memcpy(gemResult, gemColumn, matrixWidth * sizeof(float));
 
 	cout << "Input matrix (" << matrixWidth << "x" << matrixWidth << ")" << endl;
 	printMatrix(detMatrix, matrixWidth);
@@ -582,7 +588,10 @@ int main(int argc, char* argv[])
 	cout << "Determinant GPU output matrix:" << endl;
 	printMatrix(resultDet, matrixWidth);
 
+	clock_t gemDetCpuPart = clock();
 	getDeterminant(resultDet, matrixWidth, &d, &exp);
+	gemDetCpuPart = clock() - gemDetCpuPart;
+
 	cout << "GPU Determinant: " << d;
 	if (exp > 0)
 	{
@@ -610,8 +619,14 @@ int main(int argc, char* argv[])
 	cout << "\n\nInverted GPU output matrix:" << endl;
 	printMatrix(resultInverse, matrixWidth, resultInverseOnes, matrixSize);
 
-	cout << "CPU/GPU Times:\nCPU determinant (ms): " << cpuDetTime << "\nGPU determinant (ms): " << detTime << "\nCPU GEM (ms): "
-		<< cpuGemTime << "\nGPU GEM (ms): " << gem1Time + gem2Time << "\nCPU Invert (ms): " << cpuInvTime << "\nGPU Invert (ms): " << invTime << endl;
+	cout << "CPU/GPU Times:\nCPU determinant (ms): " << cpuDetTime;
+	cout << "\nGPU determinant (ms): " << detTime << "\nGPU determinant CPU part(ms): " << gemDetCpuPart << "\nGPU determinant read+write(ms): " << getEventTime(inputEvent) + getEventTime(resultDetEvent);
+	cout << "\n\nCPU GEM (ms): " << cpuGemTime;
+	cout << "\nGPU GEM (ms): " << gemTime << "\nGPU GEM CPU part(ms): " << gemGpuCpuPart << "\nGPU GEM read+write(ms): " << getEventTime(gemInputEvent) + getEventTime(gemInputColumnEvent) +
+		getEventTime(resultGemMatrixEvent) + getEventTime(resultGemColumnEvent);
+	cout << "\n\nCPU Invert (ms): " << cpuInvTime;
+	cout << "\nGPU Invert (ms): " << invTime << "\nGPU Invert read+write(ms): " << getEventTime(invInputEvent) + getEventTime(invOnesMatrixEvent) +
+		getEventTime(resultInverseMatrixEvent) + getEventTime(resultInverseOnesMatrixEvent) << endl;
 
 	// Release buffers
 	// Det

@@ -49,11 +49,6 @@ void determinant(float *A, float *d, int *exp, int matrixSize)
 
 void gem(float *A, float *result, int matrixSize)
 {
-	for (int i = 0; i < matrixSize; i++)
-	{
-		result[i] = 1;
-	}
-
 	// Compute gaussian elimination
 	for (int pivot = 0; pivot < matrixSize; pivot++)
 	{

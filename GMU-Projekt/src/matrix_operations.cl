@@ -33,55 +33,29 @@ __kernel void gem2(__global float *m, __global float *c, __global float* r, int 
 	}
 }
 
-__kernel void gem(__global float *m, __global float *c, int s, int i)
+__kernel void inv1(__global float *m, __global float *im, int s, int i)
 {
-	/*int g_x = (int)get_global_id(0);
-	int g_y = (int)get_global_id(1);
+	int g = (int)get_global_id(0);
 
-	float divider = m[i * s + i];
-	barrier(CLK_LOCAL_MEM_FENCE);
-
-	m[i * s + g_x] = native_divide(m[i * s + g_x], divider);
-	c[i] = native_divide(c[i], divider);
-
-	barrier(CLK_LOCAL_MEM_FENCE);
-	float rat = native_divide(m[g_y * s + i], m[i * s + i]);
-
-	if ((g_x < s) && (g_y < s) && i != g_y)
-	{
-	m[g_y * s + g_x] -= rat * m[i * s + g_x];
-	c[g_y] -= rat * c[i];
-	}*/
+	if(g < 2 * s) {
+		if (g < s)
+			m[i * s + g] /= m[i * s + i];
+		else
+			im[i * s + g - s] /= m[i * s + i];
+	}
 }
 
-__kernel void inverse(__global float *m, __global float *im, __global float* r, int s, int i)
+__kernel void inv2(__global float *m, __global float *im, int s, int i)
 {
-	/*int g_x = (int)get_global_id(0);
-	int g_y = (int)get_global_id(1);
-
-	float divider = m[i * s + i];
-	barrier(CLK_LOCAL_MEM_FENCE);
-
-	m[i * s + g_x] = native_divide(m[i * s + g_x], divider);
-	im[i * s + g_x] = native_divide(im[i * s + g_x], divider);
-
-	barrier(CLK_LOCAL_MEM_FENCE);
-	float rat = r[g_y + i + 1];// native_divide(m[g_y * s + i], m[i * s + i]);
-
-	if ((g_x < s) && (g_y < s) && i != g_y)
-	{
-	m[g_y * s + g_x] -= rat * m[i * s + g_x];
-	im[g_y * s + g_x] -= rat * im[i * s + g_x];
-	}*/
-
 	int g_x = (int)get_global_id(0);
 	int g_y = (int)get_global_id(1);
 
-	if ((g_x + i < s - 1) && (g_y + i < s)) {
-		m[(g_x + i + 1) * s + g_y + i] -= r[g_x + i + 1] * m[i * s + g_y + i];
-
-		if (g_y == 0) {
-			im[(g_x + i + 1) * s + g_y + i] -= r[g_x + i + 1] * im[i * s + g_y + i];
+	if((g_x < s) && (g_y < 2 * s)) {
+		if(g_x != i) {
+			if(g_y < s)
+				m[g_x * s + g_y] -= m[g_x * s + i] * m[i * s + g_y];
+			else
+				im[g_x * s + g_y - s] -= m[g_x * s + i] * im[i * s + g_y - s];
 		}
 	}
 }

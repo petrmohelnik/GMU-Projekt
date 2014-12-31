@@ -177,7 +177,7 @@ int main(int argc, char* argv[])
 	cl_platform_id *platform;
 	cl_device_id gpuDevice;
 	cl_int errMsg;
-	cl_int matrixWidth = 1024;
+	cl_int matrixWidth = 1500;
 	cl_int matrixSize = matrixWidth * matrixWidth;
 
 	/* Alocate matrix */
@@ -295,7 +295,10 @@ int main(int argc, char* argv[])
 	cl_kernel kernelGem2 = clCreateKernel(program, "gem2", &errMsg);
 	CheckOpenCLError(errMsg, "clCreateKernel: ");
 
-	cl_kernel kernelInverse = clCreateKernel(program, "inverse", &errMsg);
+	cl_kernel kernelInv1 = clCreateKernel(program, "inv1", &errMsg);
+	CheckOpenCLError(errMsg, "clCreateKernel: ");
+
+	cl_kernel kernelInv2 = clCreateKernel(program, "inv2", &errMsg);
 	CheckOpenCLError(errMsg, "clCreateKernel: ");
 
 	// Create buffers
@@ -357,7 +360,10 @@ int main(int argc, char* argv[])
 	cl_event invOnesMatrixEvent = clCreateUserEvent(context, &errMsg);
 	CheckOpenCLError(errMsg, "clCreateUserEvent: ");
 
-	cl_event kernelInverseEvent = clCreateUserEvent(context, &errMsg);
+	cl_event kernelInverse1Event = clCreateUserEvent(context, &errMsg);
+	CheckOpenCLError(errMsg, "clCreateUserEvent: ");
+
+	cl_event kernelInverse2Event = clCreateUserEvent(context, &errMsg);
 	CheckOpenCLError(errMsg, "clCreateUserEvent: ");
 
 	cl_event resultInverseMatrixEvent = clCreateUserEvent(context, &errMsg);
@@ -367,15 +373,7 @@ int main(int argc, char* argv[])
 	CheckOpenCLError(errMsg, "clCreateUserEvent: ");
 
 	// set local workgroup size
-	size_t local[2] = { 128, 128 };
-	size_t maxWorkGroupSize, maxWorkItemSizes[10];
-	clGetDeviceInfo(gpuDevice, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t), &maxWorkGroupSize, NULL);
-	clGetDeviceInfo(gpuDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(size_t) * 10, maxWorkItemSizes, NULL);
-	while ((local[0] * local[1] > maxWorkGroupSize) || (local[0] > maxWorkItemSizes[0]) || (local[1] > maxWorkItemSizes[1])) {
-		local[0] /= 2;
-		local[1] /= 2;
-	}
-
+	size_t local[2] = { 16, 16 };
 	size_t global[2];
 	global[0] = iCeilTo(matrixWidth, local[0]);
 	global[1] = iCeilTo(matrixWidth, local[1]);
@@ -423,7 +421,7 @@ int main(int argc, char* argv[])
 		CheckOpenCLError(clSetKernelArg(kernelGem1, 3, sizeof(cl_int), &matrixWidth), "clSetKernelArg: ");
 		CheckOpenCLError(clSetKernelArg(kernelGem1, 4, sizeof(cl_int), &i), "clSetKernelArg: ");
 
-		CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelGem1, 2, NULL, global, local, 0, NULL, &kernelGem1Event), "clEnqueueNDRangeKernel: 2: ");
+		CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelGem1, 1, NULL, &global2, &local2, 0, NULL, &kernelGem1Event), "clEnqueueNDRangeKernel: 2: ");
 
 		CheckOpenCLError(clSetKernelArg(kernelDet, 0, sizeof(cl_mem), &inputBuffer), "clSetKernelArg: ");
 		CheckOpenCLError(clSetKernelArg(kernelDet, 1, sizeof(cl_mem), &resultBufferGem), "clSetKernelArg: ");
@@ -450,7 +448,7 @@ int main(int argc, char* argv[])
 		CheckOpenCLError(clSetKernelArg(kernelGem1, 3, sizeof(cl_int), &matrixWidth), "clSetKernelArg: ");
 		CheckOpenCLError(clSetKernelArg(kernelGem1, 4, sizeof(cl_int), &i), "clSetKernelArg: ");
 
-		CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelGem1, 2, NULL, global, local, 0, NULL, &kernelGem1Event), "clEnqueueNDRangeKernel: 2: ");
+		CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelGem1, 1, NULL, &global2, &local2, 0, NULL, &kernelGem1Event), "clEnqueueNDRangeKernel: 2: ");
 
 		CheckOpenCLError(clSetKernelArg(kernelGem2, 0, sizeof(cl_mem), &gemInputBufferMatrix), "clSetKernelArg: ");
 		CheckOpenCLError(clSetKernelArg(kernelGem2, 1, sizeof(cl_mem), &gemInputBufferColumn), "clSetKernelArg: ");
@@ -483,27 +481,28 @@ int main(int argc, char* argv[])
 	}
 
 	// RUN Inverse
+	global[1] *= 2;
+	global2 *= 2;
 	float invTime = 0.0;
 	for (int i = 0; i < matrixWidth; i++)
 	{
-		CheckOpenCLError(clSetKernelArg(kernelGem1, 0, sizeof(cl_mem), &invInputBufferMatrix), "clSetKernelArg: ");
-		CheckOpenCLError(clSetKernelArg(kernelGem1, 1, sizeof(cl_mem), NULL), "clSetKernelArg: ");
-		CheckOpenCLError(clSetKernelArg(kernelGem1, 2, sizeof(cl_mem), &resultBufferGem), "clSetKernelArg: ");
-		CheckOpenCLError(clSetKernelArg(kernelGem1, 3, sizeof(cl_int), &matrixWidth), "clSetKernelArg: ");
-		CheckOpenCLError(clSetKernelArg(kernelGem1, 4, sizeof(cl_int), &i), "clSetKernelArg: ");
+		CheckOpenCLError(clSetKernelArg(kernelInv1, 0, sizeof(cl_mem), &invInputBufferMatrix), "clSetKernelArg: ");
+		CheckOpenCLError(clSetKernelArg(kernelInv1, 1, sizeof(cl_mem), &invInputBufferOnesMatrix), "clSetKernelArg: ");
+		CheckOpenCLError(clSetKernelArg(kernelInv1, 2, sizeof(cl_int), &matrixWidth), "clSetKernelArg: ");
+		CheckOpenCLError(clSetKernelArg(kernelInv1, 3, sizeof(cl_int), &i), "clSetKernelArg: ");
 
-		CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelGem1, 2, NULL, global, local, 0, NULL, &kernelGem1Event), "clEnqueueNDRangeKernel: 2: ");
+		CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelInv1, 1, NULL, &global2, &local2, 0, NULL, &kernelInverse1Event), "clEnqueueNDRangeKernel: 2: ");
 
-		CheckOpenCLError(clSetKernelArg(kernelInverse, 0, sizeof(cl_mem), &invInputBufferMatrix), "clSetKernelArg: ");
-		CheckOpenCLError(clSetKernelArg(kernelInverse, 1, sizeof(cl_mem), &invInputBufferOnesMatrix), "clSetKernelArg: ");
-		CheckOpenCLError(clSetKernelArg(kernelInverse, 2, sizeof(cl_mem), &resultBufferGem), "clSetKernelArg: ");
-		CheckOpenCLError(clSetKernelArg(kernelInverse, 3, sizeof(cl_int), &matrixWidth), "clSetKernelArg: ");
-		CheckOpenCLError(clSetKernelArg(kernelInverse, 4, sizeof(cl_int), &i), "clSetKernelArg: ");
+		CheckOpenCLError(clSetKernelArg(kernelInv2, 0, sizeof(cl_mem), &invInputBufferMatrix), "clSetKernelArg: ");
+		CheckOpenCLError(clSetKernelArg(kernelInv2, 1, sizeof(cl_mem), &invInputBufferOnesMatrix), "clSetKernelArg: ");
+		CheckOpenCLError(clSetKernelArg(kernelInv2, 2, sizeof(cl_int), &matrixWidth), "clSetKernelArg: ");
+		CheckOpenCLError(clSetKernelArg(kernelInv2, 3, sizeof(cl_int), &i), "clSetKernelArg: ");
 
-		CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelInverse, 2, NULL, global, local, 0, NULL, &kernelInverseEvent), "clEnqueueNDRangeKernel: 3: ");
+		CheckOpenCLError(clEnqueueNDRangeKernel(queue, kernelInv2, 2, NULL, global, local, 0, NULL, &kernelInverse2Event), "clEnqueueNDRangeKernel: 3: ");
 		CheckOpenCLError(clFinish(queue), "clFinish: ");
-		invTime += getEventTime(kernelInverseEvent);
-		clReleaseEvent(kernelInverseEvent);
+		invTime += getEventTime(kernelInverse2Event) + getEventTime(kernelInverse1Event);
+		clReleaseEvent(kernelInverse1Event);
+		clReleaseEvent(kernelInverse2Event);
 	}
 
 	// Read inverse results
@@ -605,7 +604,7 @@ int main(int argc, char* argv[])
 	cout << "\n\nInverted GPU output matrix:" << endl;
 	printMatrix(resultInverse, matrixWidth, resultInverseOnes, matrixSize);
 
-	cout << "CPU/GPU Times:\nCPU determinant (ms): " << cpuDetTime << "\nGPU determinant (ms): " << "\nCPU GEM (ms): "
+	cout << "CPU/GPU Times:\nCPU determinant (ms): " << cpuDetTime << "\nGPU determinant (ms): " << detTime << "\nCPU GEM (ms): "
 		<< cpuGemTime << "\nGPU GEM (ms): " << gem1Time + gem2Time << "\nCPU Invert (ms): " << cpuInvTime << "\nGPU Invert (ms): " << invTime << endl;
 
 	// Release buffers
@@ -649,7 +648,7 @@ int main(int argc, char* argv[])
 	CheckOpenCLError(clReleaseKernel(kernelDet), "clReleaseKernel: ");
 	CheckOpenCLError(clReleaseKernel(kernelGem1), "clReleaseKernel: ");
 	CheckOpenCLError(clReleaseKernel(kernelGem2), "clReleaseKernel: ");
-	CheckOpenCLError(clReleaseKernel(kernelInverse), "clReleaseKernel: ");
+	CheckOpenCLError(clReleaseKernel(kernelInv2), "clReleaseKernel: ");
 
 	CheckOpenCLError(clReleaseProgram(program), "clReleaseProgram: ");
 	CheckOpenCLError(clReleaseContext(context), "clReleaseContext: ");

@@ -45,19 +45,6 @@ void determinant(float *A, float *d, int *exp, int matrixSize)
 			A[y*matrixSize + pivot] = 0;
 		}
 	}
-
-	// Compute determinant from main diagonal
-	for (int i = 0; i < matrixSize; i++)
-	{
-		*d = *d * A[i*matrixSize + i];
-
-		// Prevent infinity result
-		if (*d > 1000000 || *d < -1000000)
-		{
-			*exp += 6;
-			*d /= 1000000;
-		}
-	}
 }
 
 void gem(float *A, float *result, int matrixSize)
